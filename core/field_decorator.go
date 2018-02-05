@@ -9,6 +9,7 @@ type fieldDecorator struct {
 }
 
 func (fieldDecorator *fieldDecorator) getFieldValue(obj reflect.Value, field reflect.Value, fieldType reflect.StructField) interface{} {
+
 	if field.CanSet() {
 		if field.Kind() == reflect.Ptr && field.IsNil() {
 			return nil

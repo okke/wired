@@ -2,7 +2,6 @@ package core_test
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/okke/wires/core"
@@ -64,7 +63,19 @@ func TestCanNotRegisterNonFunctionConstructor(t *testing.T) {
 	defer internal.ShouldPanic(t)()
 
 	core.WithWire(func(wire core.WireContext) {
-		wire.Register(reflect.TypeOf(nil), "chipotle")
+		wire.Register("chipotle")
+	})
+}
+
+func nothing() {
+
+}
+func TestCanNotRegisterNonConstructorReturningNothing(t *testing.T) {
+
+	defer internal.ShouldPanic(t)()
+
+	core.WithWire(func(wire core.WireContext) {
+		wire.Register(nothing)
 	})
 }
 
@@ -99,7 +110,7 @@ func TestConstructWithoutOneArgument(t *testing.T) {
 
 	core.WithWire(func(wire core.WireContext) {
 
-		wire.Register(reflect.TypeOf((*emptyStruct)(nil)), newEmptyStruct)
+		wire.Register(newEmptyStruct)
 
 		oneValue := wire.Construct(newOneValueStructWithValue).(*oneValueStruct)
 		if oneValue == nil {
@@ -157,7 +168,7 @@ func TestDecoratorShouldNotReturnNil(t *testing.T) {
 func TestConstructSingleton(t *testing.T) {
 
 	core.WithWire(func(wire core.WireContext) {
-		wire.Register(reflect.TypeOf((*singletonStruct)(nil)), newSingletonStruct)
+		wire.Register(newSingletonStruct)
 		first := wire.Construct(newSingletonStruct)
 		second := wire.Construct(newSingletonStruct)
 
@@ -178,5 +189,66 @@ func TestConstructSingleton(t *testing.T) {
 		if secondUsage.S != first {
 			t.Error("did not use singleton", secondUsage.S, first)
 		}
+	})
+}
+
+type deeper struct {
+}
+
+type Deeper interface {
+	Deep()
+}
+
+func (deeper *deeper) Deep() {
+}
+
+func newDeeper() Deeper {
+	return &deeper{}
+}
+
+type oneMethod struct {
+	deep Deeper
+}
+
+type OneMethod interface {
+	Do(t *testing.T)
+}
+
+func (oneMethod *oneMethod) SetDeep(d Deeper) {
+	oneMethod.deep = d
+}
+
+func (oneMethod *oneMethod) GetDeep() Deeper {
+	return oneMethod.deep
+}
+
+func (oneMethod *oneMethod) Do(t *testing.T) {
+	if oneMethod.deep == nil {
+		t.Fatal("need a deeper object")
+	}
+}
+
+func newOneMethod() OneMethod {
+	return &oneMethod{}
+}
+
+type useOneMethod struct {
+	Method OneMethod
+}
+
+func newUseOneMethod() *useOneMethod {
+	return &useOneMethod{}
+}
+
+func TestConstructInterface(t *testing.T) {
+
+	core.WithWire(func(wire core.WireContext) {
+		wire.Register(newDeeper)
+		wire.Register(newOneMethod)
+		c := wire.Construct(newUseOneMethod).(*useOneMethod)
+		if c.Method == nil {
+			t.Fatal("expected method object to be constructed")
+		}
+		c.Method.Do(t)
 	})
 }

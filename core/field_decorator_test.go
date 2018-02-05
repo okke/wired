@@ -2,7 +2,6 @@ package core_test
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/okke/wires/core"
@@ -89,9 +88,9 @@ func newPeppers() *peppers {
 
 func TestNewFieldDecorator(t *testing.T) {
 	core.WithWire(func(wire core.WireContext) {
-		wire.Register(reflect.TypeOf((*chipotle)(nil)), newChipotle)
-		wire.Register(reflect.TypeOf((*jalapeno)(nil)), newJalapeno)
-		wire.Register(reflect.TypeOf((*habanero)(nil)), newHabanero)
+		wire.Register(newChipotle)
+		wire.Register(newJalapeno)
+		wire.Register(newHabanero)
 
 		p := wire.Construct(newPeppers).(*peppers)
 		if p == nil {

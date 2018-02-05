@@ -20,7 +20,7 @@ type wireContext struct {
 //
 type WireContext interface {
 	AddDecorator(decorator Decorator)
-	Register(t reflect.Type, constructor interface{})
+	Register(constructor interface{})
 	Construct(use interface{}) interface{}
 	ConstructByType(reflect.Type) interface{}
 }
@@ -83,6 +83,10 @@ func ensureConstructorIsAFunction(constructor interface{}) reflect.Type {
 		panic("constructor is not a function")
 	}
 
+	if t.NumOut() != 1 {
+		panic("constructor does not return one object")
+	}
+
 	return t
 }
 
@@ -96,9 +100,8 @@ func ensureConstructorIsAFunction(constructor interface{}) reflect.Type {
 // accept all kind of values. But it actually must be a function
 // otherwise Register will panic
 //
-func (wireContext *wireContext) Register(t reflect.Type, constructor interface{}) {
-	ensureConstructorIsAFunction(constructor)
-	wireContext.constructorMapping[t] = constructor
+func (wireContext *wireContext) Register(constructor interface{}) {
+	wireContext.constructorMapping[ensureConstructorIsAFunction(constructor).Out(0)] = constructor
 }
 
 func (wireContext *wireContext) decorate(obj interface{}) interface{} {
