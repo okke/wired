@@ -4,12 +4,6 @@ import (
 	"reflect"
 )
 
-// Singleton is a struct that can be mixed into another struct
-// to express this struct must be used as singleton
-//
-type Singleton struct {
-}
-
 type wireContext struct {
 	constructorMapping map[reflect.Type]interface{}
 	decorators         []Decorator
@@ -118,22 +112,6 @@ func (wireContext *wireContext) decorate(obj interface{}) interface{} {
 	return result
 }
 
-func (wireContext *wireContext) isSingleton(objType reflect.Type) bool {
-	if objType.Kind() == reflect.Ptr {
-		objType = objType.Elem()
-	}
-
-	if objType.Kind() == reflect.Struct {
-		field, found := objType.FieldByName("Singleton")
-
-		if found && field.Type.Kind() == reflect.Struct && field.Type.NumField() == 0 {
-			return true
-		}
-
-	}
-	return false
-}
-
 func (wireContext *wireContext) knowsSingleton(objType reflect.Type) bool {
 	if _, found := wireContext.singletons[objType]; found {
 		return true
@@ -159,7 +137,7 @@ func (wireContext *wireContext) Construct(use interface{}) interface{} {
 
 	outType := t.Out(0)
 
-	useSingleton := wireContext.isSingleton(outType)
+	useSingleton := singletonTag.isSingleton(outType)
 
 	if useSingleton && wireContext.knowsSingleton(outType) {
 		return wireContext.findSingleton(outType)

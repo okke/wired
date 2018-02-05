@@ -18,15 +18,6 @@ type oneValueStruct struct {
 	value *emptyStruct
 }
 
-type singletonStruct struct {
-	core.Singleton
-	count int
-}
-
-type structWithSingleton struct {
-	S *singletonStruct
-}
-
 func newEmptyStruct() *emptyStruct {
 	return &emptyStruct{}
 }
@@ -41,21 +32,6 @@ func newOneValueStructWithValue(arg *emptyStruct) *oneValueStruct {
 
 func newStructWithUnknownArgument(arg *unknownStruct) *emptyStruct {
 	return &emptyStruct{}
-}
-
-func newStructWithSingleTon(s *singletonStruct) *structWithSingleton {
-	return &structWithSingleton{S: s}
-}
-
-func newStructWithSingleTonWithoutArguments() *structWithSingleton {
-	return &structWithSingleton{}
-}
-
-var structCounter = 0
-
-func newSingletonStruct() *singletonStruct {
-	structCounter = structCounter + 1
-	return &singletonStruct{count: structCounter}
 }
 
 func TestCanNotRegisterNonFunctionConstructor(t *testing.T) {
@@ -162,33 +138,6 @@ func TestDecoratorShouldNotReturnNil(t *testing.T) {
 
 		t.Error("did not expect to construct", constructed)
 
-	})
-}
-
-func TestConstructSingleton(t *testing.T) {
-
-	core.WithWire(func(wire core.WireContext) {
-		wire.Register(newSingletonStruct)
-		first := wire.Construct(newSingletonStruct)
-		second := wire.Construct(newSingletonStruct)
-
-		if first != second {
-			t.Error("did not construct singletons", first, second)
-		}
-
-		// singleton should be used as constructor argument
-		//
-		firstUsage := wire.Construct(newStructWithSingleTon).(*structWithSingleton)
-		if firstUsage.S != first {
-			t.Error("did not use singleton", firstUsage.S, first)
-		}
-
-		// singleton should be used when a field is wired into a struct
-		//
-		secondUsage := wire.Construct(newStructWithSingleTonWithoutArguments).(*structWithSingleton)
-		if secondUsage.S != first {
-			t.Error("did not use singleton", secondUsage.S, first)
-		}
 	})
 }
 
