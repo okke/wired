@@ -128,35 +128,37 @@ func (wireContext *wireContext) registerSingleton(objType reflect.Type, value in
 	wireContext.singletons[objType] = value
 }
 
+func (wireContext *wireContext) constructAsSingleton(objType reflect.Type, constructor func() interface{}) interface{} {
+	if !wireContext.knowsSingleton(objType) {
+		constructed := constructor()
+		wireContext.registerSingleton(objType, constructed)
+		return constructed
+	}
+	return wireContext.findSingleton(objType)
+}
+
 // Construct takes a function and tries to call it by filling
 // in the arguments through the execution of registered constructor functions
 //
 func (wireContext *wireContext) Construct(use interface{}) interface{} {
 
-	t := ensureConstructorIsAFunction(use)
+	constructorType := ensureConstructorIsAFunction(use)
 
-	outType := t.Out(0)
+	constructByReflection := func() interface{} {
+		in := make([]reflect.Value, constructorType.NumIn())
+		for i := range in {
+			in[i] = reflect.ValueOf(wireContext.ConstructByType(constructorType.In(i)))
+		}
 
-	useSingleton := singletonTag.isSingleton(outType)
-
-	if useSingleton && wireContext.knowsSingleton(outType) {
-		return wireContext.findSingleton(outType)
+		return wireContext.decorate(reflect.ValueOf(use).Call(in)[0].Interface())
 	}
 
-	in := make([]reflect.Value, t.NumIn())
-	for i := range in {
-		in[i] = reflect.ValueOf(wireContext.ConstructByType(t.In(i)))
+	outType := constructorType.Out(0)
+	if singletonTag.isSingleton(outType) {
+		return wireContext.constructAsSingleton(outType, constructByReflection)
 	}
 
-	result := reflect.ValueOf(use).Call(in)
-
-	constructed := wireContext.decorate(result[0].Interface())
-
-	if useSingleton {
-		wireContext.registerSingleton(outType, constructed)
-	}
-
-	return constructed
+	return constructByReflection()
 }
 
 // ConstructByType constructs a type by looking up its registered constructor
