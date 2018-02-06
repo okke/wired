@@ -8,15 +8,16 @@ import "reflect"
 type Singleton struct {
 }
 
-var singletonTag = Singleton{}
+type singleton struct {
+}
 
 func init() {
-	RegisterConstructionTag(reflect.TypeOf(singletonTag), singletonTag)
+	RegisterConstructionTag(reflect.TypeOf((*Singleton)(nil)).Elem(), &singleton{})
 }
 
 // Apply applies singleton creation logic
 //
-func (singleton Singleton) Apply(wireContext WireContext, objType reflect.Type, constructor func() interface{}) interface{} {
+func (singleton *singleton) Apply(wireContext WireContext, objType reflect.Type, constructor func() interface{}) interface{} {
 
 	if object, found := wireContext.FindSingleton(objType); found {
 		return object
