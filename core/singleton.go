@@ -10,22 +10,19 @@ type Singleton struct {
 
 var singletonTag = Singleton{}
 
-func (singleton Singleton) isSingleton(objType reflect.Type) bool {
+func init() {
+	RegisterConstructionTag(reflect.TypeOf(singletonTag), singletonTag)
+}
 
-	// TODO: how to implement singleton interfaces ...
+// Apply applies singleton creation logic
+//
+func (singleton Singleton) Apply(wireContext WireContext, objType reflect.Type, constructor func() interface{}) interface{} {
 
-	if objType.Kind() == reflect.Ptr {
-		objType = objType.Elem()
+	if object, found := wireContext.FindSingleton(objType); found {
+		return object
 	}
 
-	if objType.Kind() == reflect.Struct {
-		numFields := objType.NumField()
-		for walk := 0; walk < numFields; walk++ {
-			if objType.Field(walk).Type == reflect.TypeOf(singleton) {
-				return true
-			}
-		}
-	}
-
-	return false
+	constructed := constructor()
+	wireContext.RegisterSingleton(objType, constructed)
+	return constructed
 }

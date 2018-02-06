@@ -17,6 +17,9 @@ type WireContext interface {
 	Register(constructor interface{})
 	Construct(use interface{}) interface{}
 	ConstructByType(reflect.Type) interface{}
+
+	FindSingleton(objType reflect.Type) (interface{}, bool)
+	RegisterSingleton(objType reflect.Type, value interface{})
 }
 
 // Decorator is an interface that will be used to decorate objects
@@ -112,29 +115,13 @@ func (wireContext *wireContext) decorate(obj interface{}) interface{} {
 	return result
 }
 
-func (wireContext *wireContext) knowsSingleton(objType reflect.Type) bool {
-	if _, found := wireContext.singletons[objType]; found {
-		return true
-	}
-	return false
+func (wireContext *wireContext) FindSingleton(objType reflect.Type) (interface{}, bool) {
+	value, found := wireContext.singletons[objType]
+	return value, found
 }
 
-func (wireContext *wireContext) findSingleton(objType reflect.Type) interface{} {
-	value, _ := wireContext.singletons[objType]
-	return value
-}
-
-func (wireContext *wireContext) registerSingleton(objType reflect.Type, value interface{}) {
+func (wireContext *wireContext) RegisterSingleton(objType reflect.Type, value interface{}) {
 	wireContext.singletons[objType] = value
-}
-
-func (wireContext *wireContext) constructAsSingleton(objType reflect.Type, constructor func() interface{}) interface{} {
-	if !wireContext.knowsSingleton(objType) {
-		constructed := constructor()
-		wireContext.registerSingleton(objType, constructed)
-		return constructed
-	}
-	return wireContext.findSingleton(objType)
 }
 
 // Construct takes a function and tries to call it by filling
@@ -154,8 +141,9 @@ func (wireContext *wireContext) Construct(use interface{}) interface{} {
 	}
 
 	outType := constructorType.Out(0)
-	if singletonTag.isSingleton(outType) {
-		return wireContext.constructAsSingleton(outType, constructByReflection)
+
+	if tag, found := FindConstructionTag(outType); found {
+		return tag.Apply(wireContext, outType, constructByReflection)
 	}
 
 	return constructByReflection()
