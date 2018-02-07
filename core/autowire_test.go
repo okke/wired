@@ -54,6 +54,8 @@ func newHabanero() *habanero {
 }
 
 type peppers struct {
+	core.Autowire
+
 	C     *chipotle
 	j     *jalapeno
 	H     *habanero

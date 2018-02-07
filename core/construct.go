@@ -6,15 +6,14 @@ import (
 
 type wireContext struct {
 	constructorMapping map[reflect.Type]interface{}
-	decorators         []Decorator
 	singletons         map[reflect.Type]interface{}
 }
 
 // WireContext is an interface decribing the main functions used to wire objects
 //
 type WireContext interface {
-	AddDecorator(decorator Decorator)
 	Register(constructor interface{})
+
 	Construct(use interface{}) interface{}
 	ConstructByType(reflect.Type) interface{}
 
@@ -22,37 +21,10 @@ type WireContext interface {
 	RegisterSingleton(objType reflect.Type, value interface{})
 }
 
-// Decorator is an interface that will be used to decorate objects
-// during construction.
-//
-type Decorator interface {
-	Decorate(WireContext, interface{}) interface{}
-}
-
-type defaultDecorator struct {
-	decorator func(interface{}) interface{}
-}
-
-func (defaultDecorator *defaultDecorator) Decorate(wire WireContext, obj interface{}) interface{} {
-	return defaultDecorator.decorator(obj)
-}
-
-// DecoratorFunc creates a decorator by providing a decoration function
-//
-func DecoratorFunc(f func(interface{}) interface{}) Decorator {
-	return &defaultDecorator{decorator: f}
-}
-
 func newWireContext() WireContext {
 	context := &wireContext{
 		constructorMapping: make(map[reflect.Type]interface{}, 100),
-		decorators:         make([]Decorator, 0, 10),
 		singletons:         make(map[reflect.Type]interface{}, 100)}
-
-	// by default, add a field decorator so missing struct fields
-	// are wired
-	//
-	context.AddDecorator(NewFieldDecorator())
 
 	return context
 }
@@ -103,14 +75,8 @@ func (wireContext *wireContext) Register(constructor interface{}) {
 
 func (wireContext *wireContext) decorate(obj interface{}) interface{} {
 	var result = obj
-	for _, decorator := range wireContext.decorators {
-
-		decorated := decorator.Decorate(wireContext, result)
-		if decorated == nil {
-			panic("decorator returned a nil value")
-		}
-		result = decorated
-
+	for _, decorator := range FindStructDecorationTags(reflect.TypeOf(obj)) {
+		result = decorator.Apply(wireContext, result)
 	}
 	return result
 }
@@ -159,14 +125,4 @@ func (wireContext *wireContext) ConstructByType(objType reflect.Type) interface{
 		return nil
 	}
 	return wireContext.Construct(argConstructor)
-}
-
-// AddDecorator will add a decorator that will be used when constructing
-// new objects.
-//
-func (wireContext *wireContext) AddDecorator(decorator Decorator) {
-	if decorator == nil {
-		panic("decorator may no be nil")
-	}
-	wireContext.decorators = append(wireContext.decorators, decorator)
 }

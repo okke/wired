@@ -1,7 +1,6 @@
 package core_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/okke/wires/core"
@@ -98,49 +97,6 @@ func TestConstructWithoutOneArgument(t *testing.T) {
 	})
 }
 
-func TestCannotAddNilDecorator(t *testing.T) {
-
-	core.WithWire(func(wire core.WireContext) {
-		defer internal.ShouldPanic(t)()
-
-		wire.AddDecorator(nil)
-	})
-
-}
-
-func TestDecoratorsShouldBeCalled(t *testing.T) {
-	core.WithWire(func(wire core.WireContext) {
-		var changed = false
-		wire.AddDecorator(core.DecoratorFunc(func(obj interface{}) interface{} {
-			changed = true
-			return obj
-		}))
-		constructed := wire.Construct(newEmptyStruct)
-		if constructed == nil {
-			t.Error("expected a struct to be constructed")
-		}
-		if !changed {
-			t.Error("expected a decorator to be called")
-		}
-	})
-}
-
-func TestDecoratorShouldNotReturnNil(t *testing.T) {
-
-	fmt.Println("-->")
-	core.WithWire(func(wire core.WireContext) {
-		defer internal.ShouldPanic(t)()
-
-		wire.AddDecorator(core.DecoratorFunc(func(obj interface{}) interface{} {
-			return nil
-		}))
-		constructed := wire.Construct(newEmptyStruct)
-
-		t.Error("did not expect to construct", constructed)
-
-	})
-}
-
 type deeper struct {
 }
 
@@ -156,6 +112,7 @@ func newDeeper() Deeper {
 }
 
 type oneMethod struct {
+	core.Autowire
 	deep Deeper
 }
 
@@ -182,6 +139,7 @@ func newOneMethod() OneMethod {
 }
 
 type useOneMethod struct {
+	core.Autowire
 	Method OneMethod
 }
 

@@ -8,10 +8,13 @@ import (
 
 type singletonStruct struct {
 	core.Singleton
+
 	count int
 }
 
 type structWithSingleton struct {
+	core.Autowire
+
 	S *singletonStruct
 }
 
