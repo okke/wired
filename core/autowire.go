@@ -2,7 +2,8 @@ package core
 
 import (
 	"reflect"
-	"strings"
+
+	"github.com/okke/wires/internal"
 )
 
 // Autowire is a tag that drives autowiring of struct fields
@@ -17,30 +18,9 @@ func init() {
 	RegisterStructDecorationTag(reflect.TypeOf((*Autowire)(nil)).Elem(), &autowire{})
 }
 
-func (autowire *autowire) getFieldValue(obj reflect.Value, field reflect.Value, fieldType reflect.StructField) interface{} {
-
-	if field.CanSet() {
-		if field.Kind() == reflect.Ptr && field.IsNil() {
-			return nil
-		}
-		return field.Interface()
-	}
-
-	name := strings.Join([]string{"Get", strings.Title(fieldType.Name)}, "")
-	getter := obj.Addr().MethodByName(name)
-	if getter.Kind() != reflect.Invalid {
-		result := getter.Call([]reflect.Value{})
-		if result[0].Kind() == reflect.Ptr && result[0].IsNil() {
-			return nil
-		}
-		return result[0].Interface()
-	}
-	return nil
-}
-
 func (autowire *autowire) getValueFor(wire WireContext, obj reflect.Value, field reflect.Value, fieldType reflect.StructField) (reflect.Value, bool) {
 
-	originalValue := autowire.getFieldValue(obj, field, fieldType)
+	originalValue := internal.GetFieldValueByReflection(obj, field, fieldType)
 
 	// TODO: DO WE WANT THIS BEHAVIOUR?
 	//
@@ -69,16 +49,7 @@ func (autowire *autowire) doDecorateStruct(wire WireContext, objValue reflect.Va
 			continue
 		}
 
-		if field.CanSet() {
-			field.Set(value)
-		} else {
-			name := strings.Join([]string{"Set", strings.Title(objType.Field(walk).Name)}, "")
-			setter := objValue.Addr().MethodByName(name)
-			if setter.Kind() != reflect.Invalid {
-				setter.Call([]reflect.Value{value})
-			}
-		}
-
+		internal.SetFieldValueByReflection(objValue, field, fieldType, value)
 	}
 }
 
