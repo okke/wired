@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -70,7 +71,33 @@ func ensureConstructorIsAFunction(constructor interface{}) reflect.Type {
 // otherwise Register will panic
 //
 func (wireContext *wireContext) Register(constructor interface{}) {
-	wireContext.constructorMapping[ensureConstructorIsAFunction(constructor).Out(0)] = constructor
+	constructorType := ensureConstructorIsAFunction(constructor).Out(0)
+	if knownConstructor, foundConstructor := wireContext.constructorMapping[constructorType]; foundConstructor {
+
+		// already known so we also know how to create a slice
+		//
+		sliceType := reflect.SliceOf(constructorType)
+
+		if knownSliceConstructor, foundSliceConstructor := wireContext.constructorMapping[sliceType]; foundSliceConstructor {
+			wireContext.constructorMapping[sliceType] = func() interface{} {
+				slice := reflect.MakeSlice(sliceType, 0, 0)
+				slice = reflect.Append(slice, reflect.ValueOf(wireContext.Construct(constructor)))
+				slice = reflect.AppendSlice(slice, reflect.ValueOf(wireContext.Construct(knownSliceConstructor)))
+				return slice.Interface()
+			}
+		} else {
+
+			wireContext.constructorMapping[sliceType] = func() interface{} {
+				slice := reflect.MakeSlice(sliceType, 0, 0)
+				slice = reflect.Append(slice, reflect.ValueOf(wireContext.Construct(constructor)))
+				slice = reflect.Append(slice, reflect.ValueOf(wireContext.Construct(knownConstructor)))
+				return slice.Interface()
+			}
+		}
+	} else {
+		wireContext.constructorMapping[constructorType] = constructor
+	}
+
 }
 
 func (wireContext *wireContext) decorate(obj interface{}) interface{} {
@@ -100,7 +127,12 @@ func (wireContext *wireContext) Construct(use interface{}) interface{} {
 	constructByReflection := func() interface{} {
 		in := make([]reflect.Value, constructorType.NumIn())
 		for i := range in {
-			in[i] = reflect.ValueOf(wireContext.ConstructByType(constructorType.In(i)))
+			if arg := wireContext.ConstructByType(constructorType.In(i)); arg != nil {
+				in[i] = reflect.ValueOf(arg)
+			} else {
+				panic(fmt.Sprintf("do not know how to construct %v", constructorType.In(i)))
+			}
+
 		}
 
 		return wireContext.decorate(reflect.ValueOf(use).Call(in)[0].Interface())

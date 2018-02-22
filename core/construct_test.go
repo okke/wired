@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/okke/wires/core"
@@ -157,5 +158,88 @@ func TestConstructInterface(t *testing.T) {
 			t.Fatal("expected method object to be constructed")
 		}
 		c.Method.Do(t)
+	})
+}
+
+// ------ Test multiple constructors for the same type ----
+
+type Incrementer interface {
+	Increment(*int)
+}
+
+type firstIncrementer struct {
+}
+
+func (firstIncrementer *firstIncrementer) Increment(i *int) {
+	*i = *i + 7
+}
+
+func newFirstIncrementer() Incrementer {
+	return &firstIncrementer{}
+}
+
+type secondIncrementer struct {
+}
+
+func (secondIncrementer *secondIncrementer) Increment(i *int) {
+	*i = *i + 13
+}
+
+func newSecondIncrementer() Incrementer {
+	return &secondIncrementer{}
+}
+
+func newAnotherSecondIncrementer() Incrementer {
+	return &secondIncrementer{}
+}
+
+// to prevend a recurse loop when resolving, introduce a separate interface
+// for the combined incrementer
+//
+type CombinedIncrementer interface {
+	Incrementer
+}
+
+type combinedIncrementer struct {
+	all []Incrementer
+}
+
+func (combinedIncrementer *combinedIncrementer) Increment(i *int) {
+	for _, increment := range combinedIncrementer.all {
+		increment.Increment(i)
+	}
+}
+
+func newCombinedIncrementer(combine []Incrementer) CombinedIncrementer {
+	return &combinedIncrementer{all: combine}
+}
+
+func TestConstructWithMultipleConstructors(t *testing.T) {
+
+	core.WithWire(func(wire core.WireContext) {
+		wire.Register(newFirstIncrementer)         // construct Incrementer
+		wire.Register(newSecondIncrementer)        // construct Incrementer
+		wire.Register(newAnotherSecondIncrementer) // construct Incrementer
+		wire.Register(newCombinedIncrementer)      // construct CombinedIncrementer
+
+		giveMeOne := reflect.TypeOf((*Incrementer)(nil)).Elem()
+		if incrementer, couldCast := wire.ConstructByType(giveMeOne).(Incrementer); couldCast {
+			i := 0
+			incrementer.Increment(&i)
+			if i != 7 {
+				t.Error("first incrementer should increase to 7, not", i)
+			}
+		} else {
+			t.Error("expected an incrementer, not", incrementer)
+		}
+
+		lookingFor := reflect.TypeOf((*CombinedIncrementer)(nil)).Elem()
+		t.Log(lookingFor)
+		combined := wire.ConstructByType(lookingFor).(Incrementer)
+		i := 0
+		combined.Increment(&i)
+		if i != 33 {
+			t.Error("expected all incrementers to be called which would result in 33 instead of", i)
+		}
 	})
 }
