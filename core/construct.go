@@ -3,6 +3,8 @@ package core
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/okke/wires/internal"
 )
 
 type wireContext struct {
@@ -60,6 +62,26 @@ func ensureConstructorIsAFunction(constructor interface{}) reflect.Type {
 	return t
 }
 
+func (wireContext *wireContext) registerSliceConstructor(constructor interface{}, constructorType reflect.Type, knownConstructor interface{}) {
+
+	sliceType := reflect.SliceOf(constructorType)
+
+	// when the slice constructor is also known, use that constructor
+	// to fill slice values
+	//
+	if knownSliceConstructor, foundSliceConstructor := wireContext.constructorMapping[sliceType]; foundSliceConstructor {
+		knownConstructor = knownSliceConstructor
+	}
+
+	wireContext.constructorMapping[sliceType] = func() interface{} {
+		return internal.CreateSliceWithValues(
+			sliceType,
+			wireContext.Construct(constructor),
+			wireContext.Construct(knownConstructor)).Interface()
+	}
+
+}
+
 // Register will register a constructor for a given Type
 //
 // Best practice is to use the register function in the init()
@@ -76,24 +98,8 @@ func (wireContext *wireContext) Register(constructor interface{}) {
 
 		// already known so we also know how to create a slice
 		//
-		sliceType := reflect.SliceOf(constructorType)
+		wireContext.registerSliceConstructor(constructor, constructorType, knownConstructor)
 
-		if knownSliceConstructor, foundSliceConstructor := wireContext.constructorMapping[sliceType]; foundSliceConstructor {
-			wireContext.constructorMapping[sliceType] = func() interface{} {
-				slice := reflect.MakeSlice(sliceType, 0, 0)
-				slice = reflect.Append(slice, reflect.ValueOf(wireContext.Construct(constructor)))
-				slice = reflect.AppendSlice(slice, reflect.ValueOf(wireContext.Construct(knownSliceConstructor)))
-				return slice.Interface()
-			}
-		} else {
-
-			wireContext.constructorMapping[sliceType] = func() interface{} {
-				slice := reflect.MakeSlice(sliceType, 0, 0)
-				slice = reflect.Append(slice, reflect.ValueOf(wireContext.Construct(constructor)))
-				slice = reflect.Append(slice, reflect.ValueOf(wireContext.Construct(knownConstructor)))
-				return slice.Interface()
-			}
-		}
 	} else {
 		wireContext.constructorMapping[constructorType] = constructor
 	}

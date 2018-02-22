@@ -43,3 +43,18 @@ func SetFieldValueByReflection(objValue reflect.Value, field reflect.Value, fiel
 		}
 	}
 }
+
+// CreateSliceWithValues creates a slice of given type and appends given values
+// When a value is a slice itself, all slice values will be added
+//
+func CreateSliceWithValues(sliceType reflect.Type, values ...interface{}) reflect.Value {
+	slice := reflect.MakeSlice(sliceType, 0, len(values))
+	for _, value := range values {
+		if reflect.TypeOf(value).Kind() == reflect.Slice {
+			slice = reflect.AppendSlice(slice, reflect.ValueOf(value))
+		} else {
+			slice = reflect.Append(slice, reflect.ValueOf(value))
+		}
+	}
+	return slice
+}
