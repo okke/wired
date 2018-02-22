@@ -164,14 +164,16 @@ func TestConstructInterface(t *testing.T) {
 // ------ Test multiple constructors for the same type ----
 
 type Incrementer interface {
-	Increment(*int)
+	Increment(int) int
 }
+
+var IncrementerType = reflect.TypeOf((*Incrementer)(nil)).Elem()
 
 type firstIncrementer struct {
 }
 
-func (firstIncrementer *firstIncrementer) Increment(i *int) {
-	*i = *i + 7
+func (firstIncrementer *firstIncrementer) Increment(i int) int {
+	return i + 7
 }
 
 func newFirstIncrementer() Incrementer {
@@ -181,8 +183,8 @@ func newFirstIncrementer() Incrementer {
 type secondIncrementer struct {
 }
 
-func (secondIncrementer *secondIncrementer) Increment(i *int) {
-	*i = *i + 13
+func (secondIncrementer *secondIncrementer) Increment(i int) int {
+	return i + 13
 }
 
 func newSecondIncrementer() Incrementer {
@@ -200,14 +202,18 @@ type CombinedIncrementer interface {
 	Incrementer
 }
 
+var CombinedIncrementerType = reflect.TypeOf((*CombinedIncrementer)(nil)).Elem()
+
 type combinedIncrementer struct {
 	all []Incrementer
 }
 
-func (combinedIncrementer *combinedIncrementer) Increment(i *int) {
+func (combinedIncrementer *combinedIncrementer) Increment(i int) int {
+	result := i
 	for _, increment := range combinedIncrementer.all {
-		increment.Increment(i)
+		result = increment.Increment(result)
 	}
+	return result
 }
 
 func newCombinedIncrementer(combine []Incrementer) CombinedIncrementer {
@@ -222,23 +228,13 @@ func TestConstructWithMultipleConstructors(t *testing.T) {
 		wire.Register(newAnotherSecondIncrementer) // construct Incrementer
 		wire.Register(newCombinedIncrementer)      // construct CombinedIncrementer
 
-		giveMeOne := reflect.TypeOf((*Incrementer)(nil)).Elem()
-		if incrementer, couldCast := wire.ConstructByType(giveMeOne).(Incrementer); couldCast {
-			i := 0
-			incrementer.Increment(&i)
-			if i != 7 {
-				t.Error("first incrementer should increase to 7, not", i)
-			}
-		} else {
-			t.Error("expected an incrementer, not", incrementer)
+		incrementer := wire.ConstructByType(IncrementerType).(Incrementer)
+		if i := incrementer.Increment(0); i != 7 {
+			t.Error("first incrementer should increase to 7, not", i)
 		}
 
-		lookingFor := reflect.TypeOf((*CombinedIncrementer)(nil)).Elem()
-		t.Log(lookingFor)
-		combined := wire.ConstructByType(lookingFor).(Incrementer)
-		i := 0
-		combined.Increment(&i)
-		if i != 33 {
+		combined := wire.ConstructByType(CombinedIncrementerType).(Incrementer)
+		if i := combined.Increment(0); i != 33 {
 			t.Error("expected all incrementers to be called which would result in 33 instead of", i)
 		}
 	})
