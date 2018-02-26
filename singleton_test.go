@@ -1,19 +1,19 @@
-package core_test
+package wired_test
 
 import (
 	"testing"
 
-	"github.com/okke/wires/core"
+	"github.com/okke/wired"
 )
 
 type singletonStruct struct {
-	core.Singleton
+	wired.Singleton
 
 	count int
 }
 
 type structWithSingleton struct {
-	core.Autowire
+	wired.Autowire
 
 	S *singletonStruct
 }
@@ -35,7 +35,7 @@ func newSingletonStruct() *singletonStruct {
 
 func TestConstructSingleton(t *testing.T) {
 
-	core.WithWire(func(wire core.WireContext) {
+	wired.WithWire(func(wire wired.WireContext) {
 		wire.Register(newSingletonStruct)
 		first := wire.Construct(newSingletonStruct)
 		second := wire.Construct(newSingletonStruct)

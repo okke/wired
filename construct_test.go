@@ -1,11 +1,11 @@
-package core_test
+package wired_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/okke/wires/core"
-	"github.com/okke/wires/internal"
+	"github.com/okke/wired"
+	"github.com/okke/wired/internal"
 )
 
 type emptyStruct struct {
@@ -23,7 +23,7 @@ func newEmptyStruct() *emptyStruct {
 }
 
 func newOneValueStruct() *oneValueStruct {
-	return &oneValueStruct{value: core.Wire().Construct(newEmptyStruct).(*emptyStruct)}
+	return &oneValueStruct{value: wired.Wire().Construct(newEmptyStruct).(*emptyStruct)}
 }
 
 func newOneValueStructWithValue(arg *emptyStruct) *oneValueStruct {
@@ -38,7 +38,7 @@ func TestCanNotRegisterNonFunctionConstructor(t *testing.T) {
 
 	defer internal.ShouldPanic(t)()
 
-	core.WithWire(func(wire core.WireContext) {
+	wired.WithWire(func(wire wired.WireContext) {
 		wire.Register("chipotle")
 	})
 }
@@ -50,7 +50,7 @@ func TestCanNotRegisterNonConstructorReturningNothing(t *testing.T) {
 
 	defer internal.ShouldPanic(t)()
 
-	core.WithWire(func(wire core.WireContext) {
+	wired.WithWire(func(wire wired.WireContext) {
 		wire.Register(nothing)
 	})
 }
@@ -58,7 +58,7 @@ func TestCanNotRegisterNonConstructorReturningNothing(t *testing.T) {
 func TestCanNotConstructUnknownType(t *testing.T) {
 	defer internal.ShouldPanic(t)()
 
-	core.WithWire(func(wire core.WireContext) {
+	wired.WithWire(func(wire wired.WireContext) {
 		s := wire.Construct(newStructWithUnknownArgument).(*emptyStruct)
 		if s != nil {
 			t.Errorf("constructor should not work")
@@ -69,7 +69,7 @@ func TestCanNotConstructUnknownType(t *testing.T) {
 
 func TestConstructWithoutArguments(t *testing.T) {
 
-	core.WithWire(func(wire core.WireContext) {
+	wired.WithWire(func(wire wired.WireContext) {
 		empty := wire.Construct(newEmptyStruct).(*emptyStruct)
 		if empty == nil {
 			t.Error("expected to construct an empty value")
@@ -84,7 +84,7 @@ func TestConstructWithoutArguments(t *testing.T) {
 
 func TestConstructWithoutOneArgument(t *testing.T) {
 
-	core.WithWire(func(wire core.WireContext) {
+	wired.WithWire(func(wire wired.WireContext) {
 
 		wire.Register(newEmptyStruct)
 
@@ -113,7 +113,7 @@ func newDeeper() Deeper {
 }
 
 type oneMethod struct {
-	core.Autowire
+	wired.Autowire
 	deep Deeper
 }
 
@@ -140,7 +140,7 @@ func newOneMethod() OneMethod {
 }
 
 type useOneMethod struct {
-	core.Autowire
+	wired.Autowire
 	Method OneMethod
 }
 
@@ -150,7 +150,7 @@ func newUseOneMethod() *useOneMethod {
 
 func TestConstructInterface(t *testing.T) {
 
-	core.WithWire(func(wire core.WireContext) {
+	wired.WithWire(func(wire wired.WireContext) {
 		wire.Register(newDeeper)
 		wire.Register(newOneMethod)
 		c := wire.Construct(newUseOneMethod).(*useOneMethod)
@@ -222,7 +222,7 @@ func newCombinedIncrementer(combine []Incrementer) CombinedIncrementer {
 
 func TestConstructWithMultipleConstructors(t *testing.T) {
 
-	core.WithWire(func(wire core.WireContext) {
+	wired.WithWire(func(wire wired.WireContext) {
 		wire.Register(newFirstIncrementer)         // construct Incrementer
 		wire.Register(newSecondIncrementer)        // construct Incrementer
 		wire.Register(newAnotherSecondIncrementer) // construct Incrementer

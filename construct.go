@@ -1,10 +1,10 @@
-package core
+package wired
 
 import (
 	"fmt"
 	"reflect"
 
-	"github.com/okke/wires/internal"
+	"github.com/okke/wired/internal"
 )
 
 type wireContext struct {

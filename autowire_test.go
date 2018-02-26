@@ -1,10 +1,10 @@
-package core_test
+package wired_test
 
 import (
 	"fmt"
 	"testing"
 
-	"github.com/okke/wires/core"
+	"github.com/okke/wired"
 )
 
 type chipotle struct {
@@ -54,7 +54,7 @@ func newHabanero() *habanero {
 }
 
 type peppers struct {
-	core.Autowire
+	wired.Autowire
 
 	C     *chipotle
 	j     *jalapeno
@@ -89,7 +89,7 @@ func newPeppers() *peppers {
 }
 
 func TestNewFieldDecorator(t *testing.T) {
-	core.WithWire(func(wire core.WireContext) {
+	wired.WithWire(func(wire wired.WireContext) {
 		wire.Register(newChipotle)
 		wire.Register(newJalapeno)
 		wire.Register(newHabanero)

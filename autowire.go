@@ -1,9 +1,9 @@
-package core
+package wired
 
 import (
 	"reflect"
 
-	"github.com/okke/wires/internal"
+	"github.com/okke/wired/internal"
 )
 
 // Autowire is a tag that drives autowiring of struct fields
