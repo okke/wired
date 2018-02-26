@@ -6,19 +6,19 @@ import (
 	"github.com/okke/wired/internal"
 )
 
-// Autowire is a tag that drives autowiring of struct fields
+// AutoWire is a tag that drives autowiring of struct fields
 //
-type Autowire struct {
+type AutoWire struct {
 }
 
 type autowire struct {
 }
 
 func init() {
-	RegisterStructDecorationTag(reflect.TypeOf((*Autowire)(nil)).Elem(), &autowire{})
+	RegisterStructDecorationTag(reflect.TypeOf((*AutoWire)(nil)).Elem(), &autowire{})
 }
 
-func (autowire *autowire) getValueFor(wire WireContext, obj reflect.Value, field reflect.Value, fieldType reflect.StructField) (reflect.Value, bool) {
+func (autowire *autowire) getValueFor(wire Scope, obj reflect.Value, field reflect.Value, fieldType reflect.StructField) (reflect.Value, bool) {
 
 	originalValue := internal.GetFieldValueByReflection(obj, field, fieldType)
 
@@ -36,7 +36,7 @@ func (autowire *autowire) getValueFor(wire WireContext, obj reflect.Value, field
 	return reflect.ValueOf(wire.ConstructByType(fieldType.Type)), true
 }
 
-func (autowire *autowire) doDecorateStruct(wire WireContext, objValue reflect.Value, objType reflect.Type) {
+func (autowire *autowire) doDecorateStruct(wire Scope, objValue reflect.Value, objType reflect.Type) {
 
 	for walk := 0; walk < objType.NumField(); walk++ {
 
@@ -53,7 +53,7 @@ func (autowire *autowire) doDecorateStruct(wire WireContext, objValue reflect.Va
 	}
 }
 
-func (autowire *autowire) doDecorate(wire WireContext, objValue reflect.Value, objType reflect.Type) {
+func (autowire *autowire) doDecorate(wire Scope, objValue reflect.Value, objType reflect.Type) {
 
 	if objType.Kind() == reflect.Ptr {
 		autowire.doDecorate(wire, objValue.Elem(), objType.Elem())
@@ -67,7 +67,7 @@ func (autowire *autowire) doDecorate(wire WireContext, objValue reflect.Value, o
 
 }
 
-func (autowire *autowire) Apply(context WireContext, object interface{}) interface{} {
+func (autowire *autowire) Apply(context Scope, object interface{}) interface{} {
 	autowire.doDecorate(context, reflect.ValueOf(object), reflect.TypeOf(object))
 	return object
 }

@@ -23,7 +23,7 @@ func newEmptyStruct() *emptyStruct {
 }
 
 func newOneValueStruct() *oneValueStruct {
-	return &oneValueStruct{value: wired.Wire().Construct(newEmptyStruct).(*emptyStruct)}
+	return &oneValueStruct{value: wired.Global().Construct(newEmptyStruct).(*emptyStruct)}
 }
 
 func newOneValueStructWithValue(arg *emptyStruct) *oneValueStruct {
@@ -38,7 +38,7 @@ func TestCanNotRegisterNonFunctionConstructor(t *testing.T) {
 
 	defer internal.ShouldPanic(t)()
 
-	wired.WithWire(func(wire wired.WireContext) {
+	wired.Go(func(wire wired.Scope) {
 		wire.Register("chipotle")
 	})
 }
@@ -50,7 +50,7 @@ func TestCanNotRegisterNonConstructorReturningNothing(t *testing.T) {
 
 	defer internal.ShouldPanic(t)()
 
-	wired.WithWire(func(wire wired.WireContext) {
+	wired.Go(func(wire wired.Scope) {
 		wire.Register(nothing)
 	})
 }
@@ -58,8 +58,8 @@ func TestCanNotRegisterNonConstructorReturningNothing(t *testing.T) {
 func TestCanNotConstructUnknownType(t *testing.T) {
 	defer internal.ShouldPanic(t)()
 
-	wired.WithWire(func(wire wired.WireContext) {
-		s := wire.Construct(newStructWithUnknownArgument).(*emptyStruct)
+	wired.Go(func(scope wired.Scope) {
+		s := scope.Construct(newStructWithUnknownArgument).(*emptyStruct)
 		if s != nil {
 			t.Errorf("constructor should not work")
 		}
@@ -69,13 +69,13 @@ func TestCanNotConstructUnknownType(t *testing.T) {
 
 func TestConstructWithoutArguments(t *testing.T) {
 
-	wired.WithWire(func(wire wired.WireContext) {
-		empty := wire.Construct(newEmptyStruct).(*emptyStruct)
+	wired.Go(func(scope wired.Scope) {
+		empty := scope.Construct(newEmptyStruct).(*emptyStruct)
 		if empty == nil {
 			t.Error("expected to construct an empty value")
 		}
 
-		oneValue := wire.Construct(newOneValueStruct).(*oneValueStruct)
+		oneValue := scope.Construct(newOneValueStruct).(*oneValueStruct)
 		if oneValue == nil {
 			t.Error("expected to construct a one value")
 		}
@@ -84,11 +84,11 @@ func TestConstructWithoutArguments(t *testing.T) {
 
 func TestConstructWithoutOneArgument(t *testing.T) {
 
-	wired.WithWire(func(wire wired.WireContext) {
+	wired.Go(func(scope wired.Scope) {
 
-		wire.Register(newEmptyStruct)
+		scope.Register(newEmptyStruct)
 
-		oneValue := wire.Construct(newOneValueStructWithValue).(*oneValueStruct)
+		oneValue := scope.Construct(newOneValueStructWithValue).(*oneValueStruct)
 		if oneValue == nil {
 			t.Error("expected to construct a one value struct")
 		}
@@ -113,7 +113,7 @@ func newDeeper() Deeper {
 }
 
 type oneMethod struct {
-	wired.Autowire
+	wired.AutoWire
 	deep Deeper
 }
 
@@ -140,7 +140,7 @@ func newOneMethod() OneMethod {
 }
 
 type useOneMethod struct {
-	wired.Autowire
+	wired.AutoWire
 	Method OneMethod
 }
 
@@ -150,10 +150,10 @@ func newUseOneMethod() *useOneMethod {
 
 func TestConstructInterface(t *testing.T) {
 
-	wired.WithWire(func(wire wired.WireContext) {
-		wire.Register(newDeeper)
-		wire.Register(newOneMethod)
-		c := wire.Construct(newUseOneMethod).(*useOneMethod)
+	wired.Go(func(scope wired.Scope) {
+		scope.Register(newDeeper)
+		scope.Register(newOneMethod)
+		c := scope.Construct(newUseOneMethod).(*useOneMethod)
 		if c.Method == nil {
 			t.Fatal("expected method object to be constructed")
 		}
@@ -222,18 +222,18 @@ func newCombinedIncrementer(combine []Incrementer) CombinedIncrementer {
 
 func TestConstructWithMultipleConstructors(t *testing.T) {
 
-	wired.WithWire(func(wire wired.WireContext) {
-		wire.Register(newFirstIncrementer)         // construct Incrementer
-		wire.Register(newSecondIncrementer)        // construct Incrementer
-		wire.Register(newAnotherSecondIncrementer) // construct Incrementer
-		wire.Register(newCombinedIncrementer)      // construct CombinedIncrementer
+	wired.Go(func(scope wired.Scope) {
+		scope.Register(newFirstIncrementer)         // construct Incrementer
+		scope.Register(newSecondIncrementer)        // construct Incrementer
+		scope.Register(newAnotherSecondIncrementer) // construct Incrementer
+		scope.Register(newCombinedIncrementer)      // construct CombinedIncrementer
 
-		incrementer := wire.ConstructByType(IncrementerType).(Incrementer)
+		incrementer := scope.ConstructByType(IncrementerType).(Incrementer)
 		if i := incrementer.Increment(0); i != 7 {
 			t.Error("first incrementer should increase to 7, not", i)
 		}
 
-		combined := wire.ConstructByType(CombinedIncrementerType).(Incrementer)
+		combined := scope.ConstructByType(CombinedIncrementerType).(Incrementer)
 		if i := combined.Increment(0); i != 33 {
 			t.Error("expected all incrementers to be called which would result in 33 instead of", i)
 		}

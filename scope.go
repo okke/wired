@@ -7,14 +7,14 @@ import (
 	"github.com/okke/wired/internal"
 )
 
-type wireContext struct {
+type scope struct {
 	constructorMapping map[reflect.Type]interface{}
 	singletons         map[reflect.Type]interface{}
 }
 
-// WireContext is an interface decribing the main functions used to wire objects
+// Scope is an interface decribing the main functions used to wire objects
 //
-type WireContext interface {
+type Scope interface {
 	Register(constructor interface{})
 
 	Construct(use interface{}) interface{}
@@ -24,28 +24,28 @@ type WireContext interface {
 	RegisterSingleton(objType reflect.Type, value interface{})
 }
 
-func newWireContext() WireContext {
-	context := &wireContext{
+func newScope() Scope {
+	context := &scope{
 		constructorMapping: make(map[reflect.Type]interface{}, 100),
 		singletons:         make(map[reflect.Type]interface{}, 100)}
 
 	return context
 }
 
-var globalWireContext = newWireContext()
+var globalScope = newScope()
 
-// Wire will return a context that can be used to register constructors and
+// Global will return a global scope that can be used to register constructors and
 // to construct actual objects
 //
-func Wire() WireContext {
-	return globalWireContext
+func Global() Scope {
+	return globalScope
 }
 
-// WithWire will create a new WireContext and use the callback to do whatever
+// Go will create a new Scope and use the callback to do whatever
 // you like to do with the created context
 //
-func WithWire(f func(WireContext)) {
-	f(newWireContext())
+func Go(f func(Scope)) {
+	f(newScope())
 }
 
 func ensureConstructorIsAFunction(constructor interface{}) reflect.Type {
@@ -62,22 +62,22 @@ func ensureConstructorIsAFunction(constructor interface{}) reflect.Type {
 	return t
 }
 
-func (wireContext *wireContext) registerSliceConstructor(constructor interface{}, constructorType reflect.Type, knownConstructor interface{}) {
+func (scope *scope) registerSliceConstructor(constructor interface{}, constructorType reflect.Type, knownConstructor interface{}) {
 
 	sliceType := reflect.SliceOf(constructorType)
 
 	// when the slice constructor is also known, use that constructor
 	// to fill slice values
 	//
-	if knownSliceConstructor, foundSliceConstructor := wireContext.constructorMapping[sliceType]; foundSliceConstructor {
+	if knownSliceConstructor, foundSliceConstructor := scope.constructorMapping[sliceType]; foundSliceConstructor {
 		knownConstructor = knownSliceConstructor
 	}
 
-	wireContext.constructorMapping[sliceType] = func() interface{} {
+	scope.constructorMapping[sliceType] = func() interface{} {
 		return internal.CreateSliceWithValues(
 			sliceType,
-			wireContext.Construct(constructor),
-			wireContext.Construct(knownConstructor)).Interface()
+			scope.Construct(constructor),
+			scope.Construct(knownConstructor)).Interface()
 	}
 
 }
@@ -92,48 +92,48 @@ func (wireContext *wireContext) registerSliceConstructor(constructor interface{}
 // accept all kind of values. But it actually must be a function
 // otherwise Register will panic
 //
-func (wireContext *wireContext) Register(constructor interface{}) {
+func (scope *scope) Register(constructor interface{}) {
 	constructorType := ensureConstructorIsAFunction(constructor).Out(0)
-	if knownConstructor, foundConstructor := wireContext.constructorMapping[constructorType]; foundConstructor {
+	if knownConstructor, foundConstructor := scope.constructorMapping[constructorType]; foundConstructor {
 
 		// already known so we also know how to create a slice
 		//
-		wireContext.registerSliceConstructor(constructor, constructorType, knownConstructor)
+		scope.registerSliceConstructor(constructor, constructorType, knownConstructor)
 
 	} else {
-		wireContext.constructorMapping[constructorType] = constructor
+		scope.constructorMapping[constructorType] = constructor
 	}
 
 }
 
-func (wireContext *wireContext) decorate(obj interface{}) interface{} {
+func (scope *scope) decorate(obj interface{}) interface{} {
 	var result = obj
 	for _, decorator := range FindStructDecorationTags(reflect.TypeOf(obj)) {
-		result = decorator.Apply(wireContext, result)
+		result = decorator.Apply(scope, result)
 	}
 	return result
 }
 
-func (wireContext *wireContext) FindSingleton(objType reflect.Type) (interface{}, bool) {
-	value, found := wireContext.singletons[objType]
+func (scope *scope) FindSingleton(objType reflect.Type) (interface{}, bool) {
+	value, found := scope.singletons[objType]
 	return value, found
 }
 
-func (wireContext *wireContext) RegisterSingleton(objType reflect.Type, value interface{}) {
-	wireContext.singletons[objType] = value
+func (scope *scope) RegisterSingleton(objType reflect.Type, value interface{}) {
+	scope.singletons[objType] = value
 }
 
 // Construct takes a function and tries to call it by filling
 // in the arguments through the execution of registered constructor functions
 //
-func (wireContext *wireContext) Construct(use interface{}) interface{} {
+func (scope *scope) Construct(use interface{}) interface{} {
 
 	constructorType := ensureConstructorIsAFunction(use)
 
 	constructByReflection := func() interface{} {
 		in := make([]reflect.Value, constructorType.NumIn())
 		for i := range in {
-			if arg := wireContext.ConstructByType(constructorType.In(i)); arg != nil {
+			if arg := scope.ConstructByType(constructorType.In(i)); arg != nil {
 				in[i] = reflect.ValueOf(arg)
 			} else {
 				panic(fmt.Sprintf("do not know how to construct %v", constructorType.In(i)))
@@ -141,13 +141,13 @@ func (wireContext *wireContext) Construct(use interface{}) interface{} {
 
 		}
 
-		return wireContext.decorate(reflect.ValueOf(use).Call(in)[0].Interface())
+		return scope.decorate(reflect.ValueOf(use).Call(in)[0].Interface())
 	}
 
 	outType := constructorType.Out(0)
 
 	if tag, found := FindConstructionTag(outType); found {
-		return tag.Apply(wireContext, outType, constructByReflection)
+		return tag.Apply(scope, outType, constructByReflection)
 	}
 
 	return constructByReflection()
@@ -156,11 +156,11 @@ func (wireContext *wireContext) Construct(use interface{}) interface{} {
 // ConstructByType constructs a type by looking up its registered constructor
 // function.
 //
-func (wireContext *wireContext) ConstructByType(objType reflect.Type) interface{} {
+func (scope *scope) ConstructByType(objType reflect.Type) interface{} {
 
-	argConstructor, found := wireContext.constructorMapping[objType]
+	argConstructor, found := scope.constructorMapping[objType]
 	if !found {
 		return nil
 	}
-	return wireContext.Construct(argConstructor)
+	return scope.Construct(argConstructor)
 }

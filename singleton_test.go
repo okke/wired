@@ -13,7 +13,7 @@ type singletonStruct struct {
 }
 
 type structWithSingleton struct {
-	wired.Autowire
+	wired.AutoWire
 
 	S *singletonStruct
 }
@@ -35,10 +35,10 @@ func newSingletonStruct() *singletonStruct {
 
 func TestConstructSingleton(t *testing.T) {
 
-	wired.WithWire(func(wire wired.WireContext) {
-		wire.Register(newSingletonStruct)
-		first := wire.Construct(newSingletonStruct)
-		second := wire.Construct(newSingletonStruct)
+	wired.Go(func(scope wired.Scope) {
+		scope.Register(newSingletonStruct)
+		first := scope.Construct(newSingletonStruct)
+		second := scope.Construct(newSingletonStruct)
 
 		if first != second {
 			t.Error("did not construct singletons", first, second)
@@ -46,14 +46,14 @@ func TestConstructSingleton(t *testing.T) {
 
 		// singleton should be used as constructor argument
 		//
-		firstUsage := wire.Construct(newStructWithSingleTon).(*structWithSingleton)
+		firstUsage := scope.Construct(newStructWithSingleTon).(*structWithSingleton)
 		if firstUsage.S != first {
 			t.Error("did not use singleton", firstUsage.S, first)
 		}
 
 		// singleton should be used when a field is wired into a struct
 		//
-		secondUsage := wire.Construct(newStructWithSingleTonWithoutArguments).(*structWithSingleton)
+		secondUsage := scope.Construct(newStructWithSingleTonWithoutArguments).(*structWithSingleton)
 		if secondUsage.S != first {
 			t.Error("did not use singleton", secondUsage.S, first)
 		}

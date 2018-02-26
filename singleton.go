@@ -17,13 +17,13 @@ func init() {
 
 // Apply applies singleton creation logic
 //
-func (singleton *singleton) Apply(wireContext WireContext, objType reflect.Type, constructor func() interface{}) interface{} {
+func (singleton *singleton) Apply(scope Scope, objType reflect.Type, constructor func() interface{}) interface{} {
 
-	if object, found := wireContext.FindSingleton(objType); found {
+	if object, found := scope.FindSingleton(objType); found {
 		return object
 	}
 
 	constructed := constructor()
-	wireContext.RegisterSingleton(objType, constructed)
+	scope.RegisterSingleton(objType, constructed)
 	return constructed
 }

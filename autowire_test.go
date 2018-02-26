@@ -54,7 +54,7 @@ func newHabanero() *habanero {
 }
 
 type peppers struct {
-	wired.Autowire
+	wired.AutoWire
 
 	C     *chipotle
 	j     *jalapeno
@@ -89,12 +89,12 @@ func newPeppers() *peppers {
 }
 
 func TestNewFieldDecorator(t *testing.T) {
-	wired.WithWire(func(wire wired.WireContext) {
-		wire.Register(newChipotle)
-		wire.Register(newJalapeno)
-		wire.Register(newHabanero)
+	wired.Go(func(scope wired.Scope) {
+		scope.Register(newChipotle)
+		scope.Register(newJalapeno)
+		scope.Register(newHabanero)
 
-		p := wire.Construct(newPeppers).(*peppers)
+		p := scope.Construct(newPeppers).(*peppers)
 		if p == nil {
 			t.Error("should have constructed some peppers")
 		}

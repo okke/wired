@@ -5,13 +5,13 @@ import "reflect"
 // ConstructionTag can be used to apply construction logic
 //
 type ConstructionTag interface {
-	Apply(wireContext WireContext, objType reflect.Type, constructor func() interface{}) interface{}
+	Apply(scope Scope, objType reflect.Type, constructor func() interface{}) interface{}
 }
 
 // StructDecorationTag can be used to initialize a struct after it has been constructed
 //
 type StructDecorationTag interface {
-	Apply(WireContext, interface{}) interface{}
+	Apply(Scope, interface{}) interface{}
 }
 
 var constructionTags = make(map[reflect.Type]ConstructionTag, 10)
