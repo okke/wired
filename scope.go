@@ -74,6 +74,12 @@ func (scope *scope) registerSliceConstructor(constructor interface{}, constructo
 	}
 
 	scope.constructorMapping[sliceType] = func() interface{} {
+		if knownConstructor == nil {
+			return internal.CreateSliceWithValues(
+				sliceType,
+				scope.Construct(constructor)).Interface()
+		}
+
 		return internal.CreateSliceWithValues(
 			sliceType,
 			scope.Construct(constructor),
@@ -94,13 +100,11 @@ func (scope *scope) registerSliceConstructor(constructor interface{}, constructo
 //
 func (scope *scope) Register(constructor interface{}) {
 	constructorType := ensureConstructorIsAFunction(constructor).Out(0)
-	if knownConstructor, foundConstructor := scope.constructorMapping[constructorType]; foundConstructor {
+	knownConstructor, foundConstructor := scope.constructorMapping[constructorType]
 
-		// already known so we also know how to create a slice
-		//
-		scope.registerSliceConstructor(constructor, constructorType, knownConstructor)
+	scope.registerSliceConstructor(constructor, constructorType, knownConstructor)
 
-	} else {
+	if !foundConstructor {
 		scope.constructorMapping[constructorType] = constructor
 	}
 

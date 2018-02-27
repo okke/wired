@@ -238,4 +238,14 @@ func TestConstructWithMultipleConstructors(t *testing.T) {
 			t.Error("expected all incrementers to be called which would result in 33 instead of", i)
 		}
 	})
+
+	wired.Go(func(scope wired.Scope) {
+		scope.Register(newFirstIncrementer)    // construct Incrementer
+		scope.Register(newCombinedIncrementer) // construct CombinedIncrementer
+
+		combined := scope.ConstructByType(CombinedIncrementerType).(Incrementer)
+		if i := combined.Increment(0); i != 7 {
+			t.Error("expected all incrementers to be called which would result in 7 instead of", i)
+		}
+	})
 }
