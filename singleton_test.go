@@ -35,6 +35,7 @@ func newSingletonStruct() *singletonStruct {
 
 func TestConstructSingleton(t *testing.T) {
 
+	structCounter = 0
 	wired.Go(func(scope wired.Scope) {
 		scope.Register(newSingletonStruct)
 		first := scope.Construct(newSingletonStruct)
@@ -57,5 +58,26 @@ func TestConstructSingleton(t *testing.T) {
 		if secondUsage.S != first {
 			t.Error("did not use singleton", secondUsage.S, first)
 		}
+	})
+}
+
+func TestConstructSingletonsWithMultipleScopes(t *testing.T) {
+
+	structCounter = 0
+	wired.Go(func(scope wired.Scope) {
+		scope.Register(newSingletonStruct)
+
+		var innerUsage *structWithSingleton = nil
+
+		scope.Go(func(inner wired.Scope) {
+			innerUsage = inner.Construct(newStructWithSingleTon).(*structWithSingleton)
+		})
+
+		outerUsage := scope.Construct(newStructWithSingleTon).(*structWithSingleton)
+
+		if innerUsage.S != outerUsage.S {
+			t.Error("singletons should not be scoped by default", innerUsage.S, outerUsage.S)
+		}
+
 	})
 }
