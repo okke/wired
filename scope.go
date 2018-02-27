@@ -10,6 +10,7 @@ import (
 type scope struct {
 	constructorMapping map[reflect.Type]interface{}
 	singletons         map[reflect.Type]interface{}
+	parent             *scope
 }
 
 // Scope is an interface decribing the main functions used to wire objects
@@ -22,17 +23,20 @@ type Scope interface {
 
 	FindSingleton(objType reflect.Type) (interface{}, bool)
 	RegisterSingleton(objType reflect.Type, value interface{})
+
+	Go(f func(Scope))
 }
 
-func newScope() Scope {
+func newScope(parent *scope) Scope {
 	context := &scope{
 		constructorMapping: make(map[reflect.Type]interface{}, 100),
-		singletons:         make(map[reflect.Type]interface{}, 100)}
+		singletons:         make(map[reflect.Type]interface{}, 100),
+		parent:             parent}
 
 	return context
 }
 
-var globalScope = newScope()
+var globalScope = newScope(nil)
 
 // Global will return a global scope that can be used to register constructors and
 // to construct actual objects
@@ -45,7 +49,7 @@ func Global() Scope {
 // you like to do with the created context
 //
 func Go(f func(Scope)) {
-	f(newScope())
+	f(newScope(nil))
 }
 
 func ensureConstructorIsAFunction(constructor interface{}) reflect.Type {
@@ -62,6 +66,27 @@ func ensureConstructorIsAFunction(constructor interface{}) reflect.Type {
 	return t
 }
 
+func (scope *scope) Go(f func(Scope)) {
+	f(newScope(scope))
+}
+
+func (scope *scope) findConstructor(objType reflect.Type) (interface{}, bool) {
+	result, found := scope.constructorMapping[objType]
+	if !found && scope.parent != nil {
+		result, found = scope.parent.findConstructor(objType)
+	}
+	return result, found
+}
+
+func (scope *scope) FindSingleton(objType reflect.Type) (interface{}, bool) {
+	value, found := scope.singletons[objType]
+	return value, found
+}
+
+func (scope *scope) RegisterSingleton(objType reflect.Type, value interface{}) {
+	scope.singletons[objType] = value
+}
+
 func (scope *scope) registerSliceConstructor(constructor interface{}, constructorType reflect.Type, knownConstructor interface{}) {
 
 	sliceType := reflect.SliceOf(constructorType)
@@ -69,7 +94,7 @@ func (scope *scope) registerSliceConstructor(constructor interface{}, constructo
 	// when the slice constructor is also known, use that constructor
 	// to fill slice values
 	//
-	if knownSliceConstructor, foundSliceConstructor := scope.constructorMapping[sliceType]; foundSliceConstructor {
+	if knownSliceConstructor, foundSliceConstructor := scope.findConstructor(sliceType); foundSliceConstructor {
 		knownConstructor = knownSliceConstructor
 	}
 
@@ -100,13 +125,11 @@ func (scope *scope) registerSliceConstructor(constructor interface{}, constructo
 //
 func (scope *scope) Register(constructor interface{}) {
 	constructorType := ensureConstructorIsAFunction(constructor).Out(0)
-	knownConstructor, foundConstructor := scope.constructorMapping[constructorType]
+	knownConstructor, _ := scope.findConstructor(constructorType)
 
 	scope.registerSliceConstructor(constructor, constructorType, knownConstructor)
 
-	if !foundConstructor {
-		scope.constructorMapping[constructorType] = constructor
-	}
+	scope.constructorMapping[constructorType] = constructor
 
 }
 
@@ -116,15 +139,6 @@ func (scope *scope) decorate(obj interface{}) interface{} {
 		result = decorator.Apply(scope, result)
 	}
 	return result
-}
-
-func (scope *scope) FindSingleton(objType reflect.Type) (interface{}, bool) {
-	value, found := scope.singletons[objType]
-	return value, found
-}
-
-func (scope *scope) RegisterSingleton(objType reflect.Type, value interface{}) {
-	scope.singletons[objType] = value
 }
 
 // Construct takes a function and tries to call it by filling
@@ -162,7 +176,7 @@ func (scope *scope) Construct(use interface{}) interface{} {
 //
 func (scope *scope) ConstructByType(objType reflect.Type) interface{} {
 
-	argConstructor, found := scope.constructorMapping[objType]
+	argConstructor, found := scope.findConstructor(objType)
 	if !found {
 		return nil
 	}

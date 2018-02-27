@@ -229,7 +229,7 @@ func TestConstructWithMultipleConstructors(t *testing.T) {
 		scope.Register(newCombinedIncrementer)      // construct CombinedIncrementer
 
 		incrementer := scope.ConstructByType(IncrementerType).(Incrementer)
-		if i := incrementer.Increment(0); i != 7 {
+		if i := incrementer.Increment(0); i != 13 {
 			t.Error("first incrementer should increase to 7, not", i)
 		}
 
@@ -247,5 +247,38 @@ func TestConstructWithMultipleConstructors(t *testing.T) {
 		if i := combined.Increment(0); i != 7 {
 			t.Error("expected all incrementers to be called which would result in 7 instead of", i)
 		}
+	})
+}
+
+func TestConstructWithMultipleScopes(t *testing.T) {
+	wired.Go(func(scope wired.Scope) {
+		scope.Register(newFirstIncrementer)    // construct Incrementer
+		scope.Register(newCombinedIncrementer) // construct CombinedIncrementer
+
+		scope.Go(func(inner wired.Scope) {
+			inner.Register(newSecondIncrementer)
+
+			incrementer := inner.ConstructByType(IncrementerType).(Incrementer)
+			if i := incrementer.Increment(0); i != 13 {
+				t.Error("first incrementer should increase to 13, not", i)
+			}
+
+			combined := inner.ConstructByType(CombinedIncrementerType).(Incrementer)
+			if i := combined.Increment(0); i != 20 {
+				t.Error("expected all incrementers to be called which would result in 20 instead of", i)
+			}
+
+		})
+
+		incrementer := scope.ConstructByType(IncrementerType).(Incrementer)
+		if i := incrementer.Increment(0); i != 7 {
+			t.Error("first incrementer should increase to 7, not", i)
+		}
+
+		combined := scope.ConstructByType(CombinedIncrementerType).(Incrementer)
+		if i := combined.Increment(0); i != 7 {
+			t.Error("expected all incrementers to be called which would result in 7 instead of", i)
+		}
+
 	})
 }
