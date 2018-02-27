@@ -57,7 +57,7 @@ func Global() Scope {
 }
 
 // Go will create a new Scope and use the callback to do whatever
-// you like to do with the created context
+// you like to do with the created scope
 //
 func Go(f func(Scope)) {
 	f(newScope(nil))
@@ -98,15 +98,15 @@ func (scope *scope) RegisterSingleton(objType reflect.Type, value interface{}) {
 	scope.top.singletons[objType] = value
 }
 
-func (scope *scope) registerSliceConstructor(constructor interface{}, constructorType reflect.Type, knownConstructor interface{}) {
+func (scope *scope) registerSliceConstructor(constructor interface{}, constructorType reflect.Type) {
 
 	sliceType := reflect.SliceOf(constructorType)
 
-	// when the slice constructor is also known, use that constructor
-	// to fill slice values
-	//
+	var knownConstructor interface{}
 	if knownSliceConstructor, foundSliceConstructor := scope.findConstructor(sliceType); foundSliceConstructor {
 		knownConstructor = knownSliceConstructor
+	} else {
+		knownConstructor, _ = scope.findConstructor(constructorType)
 	}
 
 	scope.constructorMapping[sliceType] = func() interface{} {
@@ -136,9 +136,8 @@ func (scope *scope) registerSliceConstructor(constructor interface{}, constructo
 //
 func (scope *scope) Register(constructor interface{}) {
 	constructorType := ensureConstructorIsAFunction(constructor).Out(0)
-	knownConstructor, _ := scope.findConstructor(constructorType)
 
-	scope.registerSliceConstructor(constructor, constructorType, knownConstructor)
+	scope.registerSliceConstructor(constructor, constructorType)
 
 	scope.constructorMapping[constructorType] = constructor
 
