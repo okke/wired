@@ -5,6 +5,10 @@ import (
 	"strings"
 )
 
+// NilValue can be used where a Value is required but no value can be determined
+//
+var NilValue = reflect.ValueOf(nil)
+
 // GetFieldValueByReflection will retrieve a structs field true reflection by either
 // accesing it like a public field or by using its getter
 //

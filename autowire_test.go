@@ -125,11 +125,6 @@ func TestNewFieldDecorator(t *testing.T) {
 			t.Error("expected a habanero to be constructed, not", p.h)
 		}
 
-		// but habanero should be decorated so unknown fields are wired
-		//
-		if p.h == nil || p.h.RealyHates == nil {
-			t.Error("expected a habanero to be constructed that hates chipotles", p.h)
-		}
 		if p.h == nil || p.h.wantsToBe == nil {
 			t.Error("expected a habanero to be constructed that wants to be a jalapeno", p.h)
 		}

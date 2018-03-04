@@ -11,7 +11,11 @@ type ConstructionTag interface {
 // StructDecorationTag can be used to initialize a struct after it has been constructed
 //
 type StructDecorationTag interface {
-	Apply(Scope, interface{}) interface{}
+
+	// GetValueFor will be called to determine field values. It should return a valid value and true
+	// When no valid value could be found, return reflect.ValueOf(nil) and false
+	//
+	GetValueFor(wire Scope, obj reflect.Value, field reflect.Value, fieldType reflect.StructField) (reflect.Value, bool)
 }
 
 var constructionTags = make(map[reflect.Type]ConstructionTag, 10)
@@ -57,11 +61,7 @@ func FindConstructionTag(objType reflect.Type) (ConstructionTag, bool) {
 //
 func FindStructDecorationTags(objType reflect.Type) []StructDecorationTag {
 
-	result := make([]StructDecorationTag, 0, 10)
-
-	if objType.Kind() == reflect.Ptr {
-		objType = objType.Elem()
-	}
+	result := make([]StructDecorationTag, 0, 0)
 
 	if objType.Kind() == reflect.Struct {
 		numFields := objType.NumField()

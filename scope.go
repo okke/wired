@@ -35,8 +35,8 @@ func newScope(parent *scope) Scope {
 	}
 
 	context := &scope{
-		constructorMapping: make(map[reflect.Type]interface{}, 100),
-		singletons:         make(map[reflect.Type]interface{}, 100),
+		constructorMapping: make(map[reflect.Type]interface{}, 0),
+		singletons:         make(map[reflect.Type]interface{}, 0),
 		parent:             parent,
 		top:                top}
 
@@ -143,12 +143,44 @@ func (scope *scope) Register(constructor interface{}) {
 
 }
 
-func (scope *scope) decorate(obj interface{}) interface{} {
-	var result = obj
-	for _, decorator := range FindStructDecorationTags(reflect.TypeOf(obj)) {
-		result = decorator.Apply(scope, result)
+func (scope *scope) doDecorateStruct(objValue reflect.Value, objType reflect.Type) {
+
+	decorators := FindStructDecorationTags(objType)
+
+	for walk := 0; walk < objType.NumField(); walk++ {
+
+		field := objValue.Field(walk)
+		fieldType := objType.Field(walk)
+
+		for _, decorator := range decorators {
+
+			value, shouldSet := decorator.GetValueFor(scope, objValue, field, fieldType)
+
+			if shouldSet {
+				internal.SetFieldValueByReflection(objValue, field, fieldType, value)
+			}
+
+		}
 	}
-	return result
+}
+
+func (scope *scope) doDecorate(objValue reflect.Value, objType reflect.Type) {
+
+	if objType.Kind() == reflect.Ptr {
+		scope.doDecorate(objValue.Elem(), objType.Elem())
+		return
+	}
+
+	if objType.Kind() == reflect.Struct {
+		scope.doDecorateStruct(objValue, objType)
+		return
+	}
+
+}
+
+func (scope *scope) decorate(obj interface{}) interface{} {
+	scope.doDecorate(reflect.ValueOf(obj), reflect.TypeOf(obj))
+	return obj
 }
 
 // Construct takes a function and tries to call it by filling
