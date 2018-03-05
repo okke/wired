@@ -156,10 +156,9 @@ func (scope *scope) doDecorateStruct(objValue reflect.Value, objType reflect.Typ
 
 			value, shouldSet := decorator.GetValueFor(scope, objValue, field, fieldType)
 
-			if shouldSet {
+			if shouldSet && value.Type().AssignableTo(field.Type()) {
 				internal.SetFieldValueByReflection(objValue, field, fieldType, value)
 			}
-
 		}
 	}
 }
@@ -220,6 +219,9 @@ func (scope *scope) ConstructByType(objType reflect.Type) interface{} {
 
 	argConstructor, found := scope.findConstructor(objType)
 	if !found {
+		if objType.Kind() == reflect.Slice {
+			return internal.CreateSliceWithValues(objType).Interface()
+		}
 		return nil
 	}
 	return scope.Construct(argConstructor)
