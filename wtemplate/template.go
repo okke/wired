@@ -27,15 +27,20 @@ func newLiteral(text string) Template {
 }
 
 type variable struct {
-	name string
+	name         string
+	defaultValue string
 }
 
 func (variable *variable) Solve(ctx Context) string {
-	return ctx.Solve(variable.name)
+	solved := ctx.Solve(variable.name)
+	if solved == "" {
+		return variable.defaultValue
+	}
+	return solved
 }
 
-func newVariable(name string) Template {
-	return &variable{name: name}
+func newVariable(name string, defaultValue string) Template {
+	return &variable{name: name, defaultValue: defaultValue}
 }
 
 type template struct {

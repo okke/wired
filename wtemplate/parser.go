@@ -18,7 +18,16 @@ type parser struct {
 const tokDOLLAR = '$'
 const tokLBRACE = '{'
 const tokRBRACE = '}'
+const tokCOLON = ':'
 const tokVARSEPARATORS = " \n\t/\\:"
+
+func (parser *parser) readIntoBuffer(s *scanner.Scanner, filler func(*bytes.Buffer)) string {
+	var buffer bytes.Buffer
+
+	filler(&buffer)
+
+	return buffer.String()
+}
 
 func (parser *parser) parseLiteral(s *scanner.Scanner) (string, bool) {
 
@@ -26,58 +35,70 @@ func (parser *parser) parseLiteral(s *scanner.Scanner) (string, bool) {
 		return "", false
 	}
 
-	var buffer bytes.Buffer
-
-	for r := s.Peek(); r != tokDOLLAR && r != scanner.EOF; r = s.Peek() {
-		buffer.WriteRune(s.Next())
-	}
-
-	return buffer.String(), true
+	return parser.readIntoBuffer(s, func(buffer *bytes.Buffer) {
+		for r := s.Peek(); r != tokDOLLAR && r != scanner.EOF; r = s.Peek() {
+			buffer.WriteRune(s.Next())
+		}
+	}), true
 
 }
 
-func (parser *parser) parseBracedVariable(s *scanner.Scanner) (string, bool) {
+func (parser *parser) parseDefaultLiteralForVariable(s *scanner.Scanner) string {
+
+	return parser.readIntoBuffer(s, func(buffer *bytes.Buffer) {
+		for r := s.Peek(); r != tokRBRACE && r != scanner.EOF; r = s.Peek() {
+			buffer.WriteRune(s.Next())
+		}
+	})
+
+}
+
+func (parser *parser) parseBracedVariable(s *scanner.Scanner) (string, string, bool) {
+
+	defaultValue := ""
 
 	if s.Peek() != tokLBRACE {
-		return "", false
+		return "", "", false
 	}
 
 	s.Next()
 
-	var buffer bytes.Buffer
+	return parser.readIntoBuffer(s, func(buffer *bytes.Buffer) {
 
-	for r := s.Next(); r != tokRBRACE && r != scanner.EOF; r = s.Next() {
-		buffer.WriteRune(r)
-	}
+		for r := s.Next(); r != tokRBRACE && r != scanner.EOF; r = s.Next() {
+			if r == tokCOLON {
+				defaultValue = parser.parseDefaultLiteralForVariable(s)
+			} else {
+				buffer.WriteRune(r)
+			}
+		}
 
-	return buffer.String(), true
+	}), defaultValue, true
 }
 
-func (parser *parser) parseUnBracedVariable(s *scanner.Scanner) (string, bool) {
+func (parser *parser) parseUnBracedVariable(s *scanner.Scanner) (string, string, bool) {
 
-	var buffer bytes.Buffer
+	result := parser.readIntoBuffer(s, func(buffer *bytes.Buffer) {
+		for r := s.Peek(); !strings.ContainsRune(tokVARSEPARATORS, r) && r != scanner.EOF; r = s.Peek() {
+			buffer.WriteRune(s.Next())
+		}
+	})
 
-	for r := s.Peek(); !strings.ContainsRune(tokVARSEPARATORS, r) && r != scanner.EOF; r = s.Peek() {
-		buffer.WriteRune(s.Next())
-	}
-
-	result := buffer.String()
-
-	return result, result != ""
+	return result, "", result != ""
 }
 
-func (parser *parser) parseVariable(s *scanner.Scanner) (string, bool) {
+func (parser *parser) parseVariable(s *scanner.Scanner) (string, string, bool) {
 	if s.Peek() != tokDOLLAR {
-		return "", false
+		return "", "", false
 	}
 	s.Next()
-	if text, parsed := parser.parseBracedVariable(s); parsed {
-		return text, parsed
+	if text, defaultValue, parsed := parser.parseBracedVariable(s); parsed {
+		return text, defaultValue, parsed
 	}
-	if text, parsed := parser.parseUnBracedVariable(s); parsed {
-		return text, parsed
+	if text, defaultValue, parsed := parser.parseUnBracedVariable(s); parsed {
+		return text, defaultValue, parsed
 	}
-	return "", false
+	return "", "", false
 }
 
 func (parser *parser) Parse(template string) Template {
@@ -92,8 +113,8 @@ func (parser *parser) Parse(template string) Template {
 			continue
 		}
 
-		if text, parsed := parser.parseVariable(&s); parsed {
-			parts = append(parts, newVariable(text))
+		if text, defaultValue, parsed := parser.parseVariable(&s); parsed {
+			parts = append(parts, newVariable(text, defaultValue))
 			continue
 		}
 

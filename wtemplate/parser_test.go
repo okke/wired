@@ -44,5 +44,6 @@ func TestParser(t *testing.T) {
 	testParser(t, "${pepper}\\$pepper", "jalapeno\\jalapeno")
 	testParser(t, "$", "")
 	testParser(t, "$$", "")
+	testParser(t, "${url:http://hotpeppers.com/habanero?color=red}", "http://hotpeppers.com/habanero?color=red")
 
 }

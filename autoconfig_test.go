@@ -12,6 +12,7 @@ type needConfig struct {
 	Unknown  string
 	Name     string `autoconfig:"${pepper}"`
 	NotFound string `autoconfig:"${unknown}"`
+	Default  string `autoconfig:"${unknown:default}"`
 }
 
 func NewNeedConfig() *needConfig {
@@ -45,6 +46,10 @@ func TestSimpleStringConfig(t *testing.T) {
 
 		if need.NotFound != "" {
 			t.Error("did not expect a value but got", need.NotFound)
+		}
+
+		if need.Default != "default" {
+			t.Error("expected default, not", need.Default)
 		}
 	})
 }
