@@ -47,16 +47,12 @@ func init() {
 
 func (autoconfig *autoconfig) GetValueFor(wire Scope, obj reflect.Value, field reflect.Value, fieldType reflect.StructField) (reflect.Value, bool) {
 
-	originalValue := internal.GetFieldValueByReflection(obj, field, fieldType)
-
-	if originalValue != nil && originalValue != "" {
-		return internal.NilValue, false
-	}
-
 	tag := fieldType.Tag.Get("autoconfig")
 	if tag != "" {
 		config := wire.Construct(newAllConfigs).(*allConfigs)
-		return reflect.ValueOf(wtemplate.Parse(config, tag)), true
+		if value := internal.ConvertString2Value(fieldType.Type.Kind(), wtemplate.Parse(config, tag)); value != internal.NilValue {
+			return value, true
+		}
 	}
 
 	return internal.NilValue, false
