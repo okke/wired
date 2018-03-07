@@ -19,6 +19,7 @@ const tokDOLLAR = '$'
 const tokLBRACE = '{'
 const tokRBRACE = '}'
 const tokCOLON = ':'
+const tokBACKSLASH = '\\'
 const tokVARSEPARATORS = " \n\t/\\:"
 
 func (parser *parser) readIntoBuffer(s *scanner.Scanner, filler func(*bytes.Buffer)) string {
@@ -37,7 +38,14 @@ func (parser *parser) parseLiteral(s *scanner.Scanner) (string, bool) {
 
 	return parser.readIntoBuffer(s, func(buffer *bytes.Buffer) {
 		for r := s.Peek(); r != tokDOLLAR && r != scanner.EOF; r = s.Peek() {
-			buffer.WriteRune(s.Next())
+			if r == tokBACKSLASH {
+				s.Next()
+				if r = s.Peek(); r != scanner.EOF {
+					buffer.WriteRune(s.Next())
+				}
+			} else {
+				buffer.WriteRune(s.Next())
+			}
 		}
 	}), true
 
