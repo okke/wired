@@ -6,6 +6,7 @@ import "reflect"
 //
 type ConstructionTag interface {
 	Apply(scope Scope, objType reflect.Type, constructor func() interface{}) interface{}
+	ShouldAutoConstruct() bool
 }
 
 // StructDecorationTag can be used to initialize a struct after it has been constructed

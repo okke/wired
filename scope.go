@@ -8,23 +8,49 @@ import (
 )
 
 type scope struct {
-	constructorMapping map[reflect.Type]interface{}
-	singletons         map[reflect.Type]interface{}
+	constructorMapping map[reflect.Type]interface{} // map type to constructor functions
+	singletons         map[reflect.Type]interface{} // map type to singleton objects
+	autoconstructors   []reflect.Type               // register types that require construction on initialization
 	parent             *scope
 	top                *scope
 }
 
-// Scope is an interface decribing the main functions used to wire objects
+// Scope is an interface describing the main functions used to wire objects
 //
 type Scope interface {
+
+	// Register a constructor function
+	//
 	Register(constructor interface{})
 
+	// Register a constructor function for a given type. Note, this method
+	// is normally not needed. When possible, use Register(...) instead of this
+	// variant
+	//
+	RegisterForType(constructorType reflect.Type, constructor interface{})
+
+	// Construct an object by providing a constructor function. Wired will
+	// inject valid function arguments.
+	//
 	Construct(use interface{}) interface{}
+
+	// Construct an object by providing the type that needs to be created.
+	//
 	ConstructByType(reflect.Type) interface{}
 
+	// Lookup a singleton by type and return it. When the singleton is found
+	// the returned bool will be true. Otherwise it will be false.
+	//
 	FindSingleton(objType reflect.Type) (interface{}, bool)
+
+	// Register a singleton for a given type. Note, using this method
+	// directly is not recommended. Use the Singleton tag instead
+	//
 	RegisterSingleton(objType reflect.Type, value interface{})
 
+	// Initialize the scope (instantiate objects (e.g. factories) that need to be instantiated before any
+	// other objects are constructed.)
+	//
 	Go(f func(Scope))
 }
 
@@ -37,6 +63,7 @@ func newScope(parent *scope) Scope {
 	context := &scope{
 		constructorMapping: make(map[reflect.Type]interface{}, 0),
 		singletons:         make(map[reflect.Type]interface{}, 0),
+		autoconstructors:   make([]reflect.Type, 0, 0),
 		parent:             parent,
 		top:                top}
 
@@ -78,6 +105,9 @@ func ensureConstructorIsAFunction(constructor interface{}) reflect.Type {
 }
 
 func (scope *scope) Go(f func(Scope)) {
+	for _, needConstruction := range scope.autoconstructors {
+		scope.ConstructByType(needConstruction)
+	}
 	f(newScope(scope))
 }
 
@@ -135,12 +165,26 @@ func (scope *scope) registerSliceConstructor(constructor interface{}, constructo
 // otherwise Register will panic
 //
 func (scope *scope) Register(constructor interface{}) {
-	constructorType := ensureConstructorIsAFunction(constructor).Out(0)
+	scope.RegisterForType(ensureConstructorIsAFunction(constructor).Out(0), constructor)
+}
 
+func (scope *scope) RegisterForType(constructorType reflect.Type, constructor interface{}) {
+
+	// ensure we know how to construct slices of given type
+	//
 	scope.registerSliceConstructor(constructor, constructorType)
 
 	scope.constructorMapping[constructorType] = constructor
 
+	if constructorTag, found := FindConstructionTag(constructorType); found {
+		if constructorTag.ShouldAutoConstruct() {
+			scope.registerAutoConstruct(constructorType)
+		}
+	}
+}
+
+func (scope *scope) registerAutoConstruct(objType reflect.Type) {
+	scope.autoconstructors = append(scope.autoconstructors, objType)
 }
 
 func (scope *scope) doDecorateStruct(objValue reflect.Value, objType reflect.Type) {
@@ -222,6 +266,7 @@ func (scope *scope) ConstructByType(objType reflect.Type) interface{} {
 		if objType.Kind() == reflect.Slice {
 			return internal.CreateSliceWithValues(objType).Interface()
 		}
+		fmt.Println("did not find ", objType)
 		return nil
 	}
 	return scope.Construct(argConstructor)

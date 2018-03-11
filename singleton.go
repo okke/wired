@@ -27,3 +27,7 @@ func (singleton *singleton) Apply(scope Scope, objType reflect.Type, constructor
 	scope.RegisterSingleton(objType, constructed)
 	return constructed
 }
+
+func (singleton *singleton) ShouldAutoConstruct() bool {
+	return false
+}
