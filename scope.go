@@ -33,6 +33,10 @@ type Scope interface {
 	//
 	Construct(use interface{}) interface{}
 
+	// Call a function and autowire function arguments
+	//
+	Inject(use interface{})
+
 	// Construct an object by providing the type that needs to be created.
 	//
 	ConstructByType(reflect.Type) interface{}
@@ -92,10 +96,6 @@ func ensureConstructorIsAFunction(constructor interface{}) reflect.Type {
 
 	if t.Kind() != reflect.Func {
 		panic("constructor is not a function")
-	}
-
-	if t.NumOut() != 1 {
-		panic("constructor does not return one object")
 	}
 
 	return t
@@ -206,11 +206,26 @@ func (scope *scope) decorate(obj interface{}) interface{} {
 	return obj
 }
 
+// Inject takes a function and tries to call it by filling
+// in the arguments however it won't return a value
+// It's mostly used for readability purpose so one can write
+//
+// scope.Inject(func (a ArgType, y YetAnotherArgtype) {
+//
+// })
+//
+func (scope *scope) Inject(use interface{}) {
+	scope.construct(use)
+}
+
 // Construct takes a function and tries to call it by filling
 // in the arguments through the execution of registered constructor functions
 //
 func (scope *scope) Construct(use interface{}) interface{} {
+	return scope.construct(use)
+}
 
+func (scope *scope) construct(use interface{}) interface{} {
 	constructorType := ensureConstructorIsAFunction(use)
 
 	constructByReflection := func() interface{} {
@@ -224,13 +239,22 @@ func (scope *scope) Construct(use interface{}) interface{} {
 
 		}
 
-		return scope.decorate(reflect.ValueOf(use).Call(in)[0].Interface())
+		results := reflect.ValueOf(use).Call(in)
+
+		if constructorType.NumOut() > 0 {
+			return scope.decorate(results[0].Interface())
+		}
+
+		return nil
+
 	}
 
-	outType := constructorType.Out(0)
+	if constructorType.NumOut() > 0 {
+		outType := constructorType.Out(0)
 
-	if tag, found := FindConstructionTag(outType); found {
-		return tag.Apply(scope, outType, constructByReflection)
+		if tag, found := FindConstructionTag(outType); found {
+			return tag.Apply(scope, outType, constructByReflection)
+		}
 	}
 
 	return constructByReflection()
@@ -246,7 +270,6 @@ func (scope *scope) ConstructByType(objType reflect.Type) interface{} {
 		if objType.Kind() == reflect.Slice {
 			return internal.CreateSliceWithValues(objType).Interface()
 		}
-		fmt.Println("did not find ", objType)
 		return nil
 	}
 	return scope.Construct(argConstructor)

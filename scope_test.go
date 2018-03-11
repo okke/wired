@@ -282,3 +282,23 @@ func TestConstructWithMultipleScopes(t *testing.T) {
 
 	})
 }
+
+func TestConstructWithoutReturnValue(t *testing.T) {
+	wired.Go(func(scope wired.Scope) {
+
+		scope.Register(newEmptyStruct)
+
+		scope.Construct(func(e *emptyStruct) {
+			if e == nil {
+				t.Error("expected an empty struct, not nil")
+			}
+		})
+
+		scope.Inject(func(e *emptyStruct) {
+			if e == nil {
+				t.Error("expected an empty struct, not nil")
+			}
+		})
+
+	})
+}
