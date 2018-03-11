@@ -10,7 +10,6 @@ import (
 type scope struct {
 	constructorMapping map[reflect.Type]interface{} // map type to constructor functions
 	singletons         map[reflect.Type]interface{} // map type to singleton objects
-	autoconstructors   []reflect.Type               // register types that require construction on initialization
 	parent             *scope
 	top                *scope
 }
@@ -48,8 +47,7 @@ type Scope interface {
 	//
 	RegisterSingleton(objType reflect.Type, value interface{})
 
-	// Initialize the scope (instantiate objects (e.g. factories) that need to be instantiated before any
-	// other objects are constructed.)
+	// Construct a sub scope and use it within given function
 	//
 	Go(f func(Scope))
 }
@@ -63,7 +61,6 @@ func newScope(parent *scope) Scope {
 	context := &scope{
 		constructorMapping: make(map[reflect.Type]interface{}, 0),
 		singletons:         make(map[reflect.Type]interface{}, 0),
-		autoconstructors:   make([]reflect.Type, 0, 0),
 		parent:             parent,
 		top:                top}
 
@@ -105,9 +102,6 @@ func ensureConstructorIsAFunction(constructor interface{}) reflect.Type {
 }
 
 func (scope *scope) Go(f func(Scope)) {
-	for _, needConstruction := range scope.autoconstructors {
-		scope.ConstructByType(needConstruction)
-	}
 	f(newScope(scope))
 }
 
@@ -154,16 +148,6 @@ func (scope *scope) registerSliceConstructor(constructor interface{}, constructo
 
 }
 
-// Register will register a constructor for a given Type
-//
-// Best practice is to use the register function in the init()
-// of your package so all types your packages exposes, are unknown
-// and can be wired
-//
-// note, the constructor is defined as interface{} so it will
-// accept all kind of values. But it actually must be a function
-// otherwise Register will panic
-//
 func (scope *scope) Register(constructor interface{}) {
 	scope.RegisterForType(ensureConstructorIsAFunction(constructor).Out(0), constructor)
 }
@@ -178,13 +162,9 @@ func (scope *scope) RegisterForType(constructorType reflect.Type, constructor in
 
 	if constructorTag, found := FindConstructionTag(constructorType); found {
 		if constructorTag.ShouldAutoConstruct() {
-			scope.registerAutoConstruct(constructorType)
+			scope.ConstructByType(constructorType)
 		}
 	}
-}
-
-func (scope *scope) registerAutoConstruct(objType reflect.Type) {
-	scope.autoconstructors = append(scope.autoconstructors, objType)
 }
 
 func (scope *scope) doDecorateStruct(objValue reflect.Value, objType reflect.Type) {
