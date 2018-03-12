@@ -8,8 +8,9 @@ import (
 )
 
 type pepperFactory struct {
-	count int
 	wired.Factory
+
+	count int
 }
 
 type pepperFromFactory struct {
@@ -31,15 +32,12 @@ func TestFactoryConstruction(t *testing.T) {
 	wired.Go(func(scope wired.Scope) {
 		scope.Register(newPepperFactory)
 
-		scope.Go(func(inner wired.Scope) {
-
-			for walk := 1; walk < 10; walk++ {
-				pepper := scope.ConstructByType(pepperType).(*pepperFromFactory)
-				if pepper.nr != walk {
-					t.Error("expected pepper nr to be ", walk, "instead of", pepper.nr)
-				}
+		for walk := 1; walk < 10; walk++ {
+			pepper := scope.ConstructByType(pepperType).(*pepperFromFactory)
+			if pepper.nr != walk {
+				t.Error("expected pepper nr to be ", walk, "instead of", pepper.nr)
 			}
+		}
 
-		})
 	})
 }

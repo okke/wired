@@ -13,6 +13,7 @@ type needConfig struct {
 	Name     string `autoconfig:"${pepper}"`
 	NotFound string `autoconfig:"${unknown}"`
 	Default  string `autoconfig:"${unknown:default}"`
+	Prefix   string `autoconfig:"${prefix:/api/}"`
 
 	NumberoInt   int   `autoconfig:"-8"`
 	NumberoInt8  int8  `autoconfig:"-8"`
@@ -67,6 +68,10 @@ func TestSimpleStringConfig(t *testing.T) {
 
 		if need.Default != "default" {
 			t.Error("expected default, not", need.Default)
+		}
+
+		if need.Prefix != "/api/" {
+			t.Error("expected /api/, not", need.Prefix)
 		}
 
 		if need.NumberoInt != -8 {
