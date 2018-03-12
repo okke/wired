@@ -1,6 +1,7 @@
 package wired_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/okke/wired"
@@ -31,6 +32,8 @@ type needConfig struct {
 	NumberoFloat64 float64 `autoconfig:"64.0"`
 
 	DefinitelyTrue bool `autoconfig:"true"`
+
+	FromEnv string `autoconfig:"$from.env"`
 }
 
 func NewNeedConfig() *needConfig {
@@ -52,7 +55,8 @@ func newTestConfig() wired.Configurator {
 }
 
 func TestSimpleStringConfig(t *testing.T) {
-	wired.Go(func(scope wired.Scope) {
+	os.Setenv("FROM_ENV", "yep-from-env")
+	wired.Global().Go(func(scope wired.Scope) {
 
 		scope.Register(newTestConfig)
 
@@ -124,6 +128,10 @@ func TestSimpleStringConfig(t *testing.T) {
 
 		if !need.DefinitelyTrue {
 			t.Error("expected true")
+		}
+
+		if need.FromEnv != "yep-from-env" {
+			t.Error("expected yep-from-env, not", need.FromEnv)
 		}
 	})
 }

@@ -1,7 +1,9 @@
 package wired
 
 import (
+	"os"
 	"reflect"
+	"strings"
 
 	"github.com/okke/wired/wtemplate"
 
@@ -20,6 +22,17 @@ type autoconfig struct {
 //
 type Configurator interface {
 	ConfigValue(key string) string
+}
+
+type configByEnvironment struct {
+}
+
+func (configByEnvironment *configByEnvironment) ConfigValue(key string) string {
+	return os.Getenv(strings.ToUpper(strings.Replace(key, ".", "_", -1)))
+}
+
+func newConfigByEnvironment() Configurator {
+	return &configByEnvironment{}
 }
 
 type allConfigs struct {
@@ -42,6 +55,7 @@ func (allConfigs *allConfigs) Solve(key string) string {
 }
 
 func init() {
+	Global().Register(newConfigByEnvironment)
 	RegisterStructDecorationTag(reflect.TypeOf((*AutoConfig)(nil)).Elem(), &autoconfig{})
 }
 
