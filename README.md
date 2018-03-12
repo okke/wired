@@ -76,7 +76,11 @@ All primitive types are supported. And hooking in your own configurators is as e
 
 ```Go
 func NewMyConfig() wired.Configurator {
-  return &myConfig{} // return an object that implements the wired.Constructor interface
+  
+  // return an object that implements the wired.Configurator interface
+  // that'll do the variable lookup ( the 'ConfigValue(key string) string' method )
+  // 
+  return &myConfig{} 
 }
 ```
 
