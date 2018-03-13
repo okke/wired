@@ -28,9 +28,7 @@ func (factory *factory) Apply(scope Scope, objType reflect.Type, constructor fun
 	factoryMethod := reflect.ValueOf(constructed).MethodByName("Construct")
 
 	if factoryMethod.Kind() != reflect.Invalid {
-		scope.RegisterForType(factoryMethod.Type().Out(0), func() interface{} {
-			return factoryMethod.Call([]reflect.Value{})[0].Interface()
-		})
+		scope.Register(factoryMethod.Interface())
 	}
 
 	return constructed
