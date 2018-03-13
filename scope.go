@@ -22,12 +22,6 @@ type Scope interface {
 	//
 	Register(constructor interface{})
 
-	// Register a constructor function for a given type. Note, this method
-	// is normally not needed. When possible, use Register(...) instead of this
-	// variant
-	//
-	RegisterForType(constructorType reflect.Type, constructor interface{})
-
 	// Construct an object by providing a constructor function. Wired will
 	// inject valid function arguments.
 	//
@@ -149,10 +143,8 @@ func (scope *scope) registerSliceConstructor(constructor interface{}, constructo
 }
 
 func (scope *scope) Register(constructor interface{}) {
-	scope.RegisterForType(ensureConstructorIsAFunction(constructor).Out(0), constructor)
-}
 
-func (scope *scope) RegisterForType(constructorType reflect.Type, constructor interface{}) {
+	constructorType := ensureConstructorIsAFunction(constructor).Out(0)
 
 	// ensure we know how to construct slices of given type
 	//
