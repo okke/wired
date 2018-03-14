@@ -148,36 +148,34 @@ Factories are objects that create other objects. Factories are recognized throug
 type pepperFactory struct {
   wired.Factory   // This will tell Wired to treat this as a factory
 
-  count int
+  count int       // factory state
 }
 
-type pepperFromFactory struct {
+type pepper struct {
   nr int
 }
 
-// Construct will construct pepperFromFactory objects
+// Construct will construct pepper objects
 // so whenever such an object is required, this method will be called
 //
-func (pepperFactory *pepperFactory) Construct() *pepperFromFactory {
+func (pepperFactory *pepperFactory) Construct() *pepper {
   pepperFactory.count = pepperFactory.count + 1
-  return &pepperFromFactory{nr: pepperFactory.count}
+  return &pepper{nr: pepperFactory.count}
 }
 ```
 
 Example usage of a factory object:
 
 ```Go
-var pepperType = reflect.TypeOf((*pepperFromFactory)(nil))
-
 wired.Global().Go(func(scope wired.Scope) {
   scope.Register(newPepperFactory)
   
   // instead of injecting the pepperFromFactory into a function,
   // ask Wired to construct one for us
   //
-  pepper := scope.ConstructByType(pepperType).(*pepperFromFactory)
- 
-   // do something with pepper
+  scope.Inject(func (pepper *pepper) {
+    // do something with pepper
+  })
 })
 ```
 
