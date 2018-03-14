@@ -11,7 +11,6 @@ type scope struct {
 	constructorMapping map[reflect.Type]interface{} // map type to constructor functions
 	singletons         map[reflect.Type]interface{} // map type to singleton objects
 	parent             *scope
-	top                *scope
 }
 
 // Scope is an interface describing the main functions used to wire objects
@@ -51,22 +50,10 @@ type Scope interface {
 }
 
 func newScope(parent *scope) Scope {
-	var top *scope
-	if parent != nil && parent.top != nil {
-		top = parent.top
-	}
-
-	context := &scope{
+	return &scope{
 		constructorMapping: make(map[reflect.Type]interface{}, 0),
 		singletons:         make(map[reflect.Type]interface{}, 0),
-		parent:             parent,
-		top:                top}
-
-	if context.top == nil {
-		context.top = context
-	}
-
-	return context
+		parent:             parent}
 }
 
 var globalScope = newScope(nil)
@@ -108,12 +95,20 @@ func (scope *scope) findConstructor(objType reflect.Type) (interface{}, bool) {
 }
 
 func (scope *scope) FindSingleton(objType reflect.Type) (interface{}, bool) {
-	value, found := scope.top.singletons[objType]
-	return value, found
+	if value, found := scope.singletons[objType]; found {
+		return value, true
+	}
+
+	if scope.parent != nil {
+		value, found := scope.parent.FindSingleton(objType)
+		return value, found
+	}
+
+	return nil, false
 }
 
 func (scope *scope) RegisterSingleton(objType reflect.Type, value interface{}) {
-	scope.top.singletons[objType] = value
+	scope.singletons[objType] = value
 }
 
 func (scope *scope) registerSliceConstructor(constructor interface{}, constructorType reflect.Type) {

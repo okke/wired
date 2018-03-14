@@ -75,8 +75,25 @@ func TestConstructSingletonsWithMultipleScopes(t *testing.T) {
 
 		outerUsage := scope.Construct(newStructWithSingleTon).(*structWithSingleton)
 
+		if innerUsage.S == outerUsage.S {
+			t.Error("singletons should be scoped by default", innerUsage.S, outerUsage.S)
+		}
+
+	})
+
+	wired.Go(func(scope wired.Scope) {
+		scope.Register(newSingletonStruct)
+
+		var innerUsage *structWithSingleton = nil
+
+		outerUsage := scope.Construct(newStructWithSingleTon).(*structWithSingleton)
+
+		scope.Go(func(inner wired.Scope) {
+			innerUsage = inner.Construct(newStructWithSingleTon).(*structWithSingleton)
+		})
+
 		if innerUsage.S != outerUsage.S {
-			t.Error("singletons should not be scoped by default", innerUsage.S, outerUsage.S)
+			t.Error("outer was created first so should be the same as inner but isn't", innerUsage.S, outerUsage.S)
 		}
 
 	})
