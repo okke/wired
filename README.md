@@ -124,6 +124,43 @@ wired.Global().Go(func(scope wired.Scope) {
 })
 ```
 
+## Constructing maps
+Wired can construct maps of known types. When multiple registered constructors return the same type and this type has a *Key()* method defined, a map from key type to constructed type will be created. So when for example you have a driver struct with a *Key()* method returning the driver's name as a string, a map from string to driver struct will be available.
+
+```Go
+type driver struct {
+  name string
+}
+
+func (driver *driver) Key() string {
+  return driver.name
+}
+
+func newAWSDriver() *driver {
+  return &driver{name: "aws"}
+}
+
+func newAzureDriver() *driver {
+  return &driver{name: "azure"}
+}
+
+func newGoogleDriver() *driver {
+  return &driver{name: "google"}
+}
+```
+
+```Go
+wired.Go(func(scope wired.Scope) {
+  scope.Register(newAWSDriver)
+  scope.Register(newAzureDriver)
+  scope.Register(newGoogleDriver)
+
+  scope.Inject(func(drivers map[string]*driver) {
+    // do something with all drivers
+  })
+}
+``` 
+
 ## Singletons
 Singletons are supported by embedding a *wired.Singleton* 'tag' inside a struct. This tells Wired that within given scope, only one instance of this struct will be constructed.
 
