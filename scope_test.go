@@ -302,3 +302,73 @@ func TestConstructWithoutReturnValue(t *testing.T) {
 
 	})
 }
+
+// ------ Test map construction for the same type ----
+
+type driverWithInvalidKeyField struct {
+}
+
+func (driverWithInvalidKeyField *driverWithInvalidKeyField) Key() {
+}
+
+func newInvalidDriver() *driverWithInvalidKeyField {
+	return &driverWithInvalidKeyField{}
+}
+
+type driver struct {
+	name string
+}
+
+func (driver *driver) Key() string {
+	return driver.name
+}
+
+func newAWSDriver() *driver {
+	return &driver{name: "aws"}
+}
+
+func newAzureDriver() *driver {
+	return &driver{name: "azure"}
+}
+
+func newGoogleDriver() *driver {
+	return &driver{name: "google"}
+}
+
+func TestConstructMap(t *testing.T) {
+
+	wired.Go(func(scope wired.Scope) {
+		scope.Register(newAWSDriver)
+		scope.Register(newAzureDriver)
+		scope.Register(newGoogleDriver)
+
+		scope.Inject(func(drivers map[string]*driver) {
+
+			for _, driverName := range []string{"aws", "azure", "google"} {
+
+				if driver, found := drivers[driverName]; found {
+					if driver.name != driverName {
+						t.Error("found different driver for", driverName)
+					}
+				} else {
+					t.Error("expected driver", driverName)
+				}
+			}
+
+		})
+	})
+}
+
+func TestConstructMapWithInvalidKeysShouldPanic(t *testing.T) {
+
+	defer internal.ShouldPanic(t)()
+
+	wired.Go(func(scope wired.Scope) {
+		scope.Register(newInvalidDriver)
+
+		scope.Inject(func(drivers map[string]*driverWithInvalidKeyField) {
+			// will panic before even getting here
+		})
+
+	})
+}

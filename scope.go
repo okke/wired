@@ -115,15 +115,10 @@ func (scope *scope) registerSliceConstructor(constructor interface{}, constructo
 
 	sliceType := reflect.SliceOf(constructorType)
 
-	var knownConstructor interface{}
-	if knownSliceConstructor, foundSliceConstructor := scope.findConstructor(sliceType); foundSliceConstructor {
-		knownConstructor = knownSliceConstructor
-	} else {
-		knownConstructor, _ = scope.findConstructor(constructorType)
-	}
+	knownConstructor, found := scope.findConstructor(sliceType)
 
 	scope.constructorMapping[sliceType] = func() interface{} {
-		if knownConstructor == nil {
+		if !found {
 			return internal.CreateSliceWithValues(
 				sliceType,
 				scope.Construct(constructor)).Interface()
@@ -137,6 +132,40 @@ func (scope *scope) registerSliceConstructor(constructor interface{}, constructo
 
 }
 
+func (scope *scope) registerMapConstructor(constructor interface{}, constructorType reflect.Type) {
+
+	keyMethod, found := constructorType.MethodByName("Key")
+	if !found {
+		return
+	}
+
+	if keyMethod.Type.NumOut() == 0 {
+		return
+	}
+
+	keyType := keyMethod.Type.Out(0)
+	mapType := reflect.MapOf(keyType, constructorType)
+
+	knownConstructor, found := scope.findConstructor(mapType)
+
+	scope.constructorMapping[mapType] = func() interface{} {
+		constructed := scope.Construct(constructor)
+		constructedKey := reflect.ValueOf(constructed).MethodByName("Key").Call([]reflect.Value{})[0].Interface()
+		if !found {
+			return internal.CreateMapWithValues(
+				mapType,
+				constructedKey,
+				constructed).Interface()
+		}
+
+		return internal.CreateMapWithValues(
+			mapType,
+			constructedKey,
+			constructed,
+			scope.Construct(knownConstructor)).Interface()
+	}
+}
+
 func (scope *scope) Register(constructor interface{}) {
 
 	constructorType := ensureConstructorIsAFunction(constructor).Out(0)
@@ -144,6 +173,7 @@ func (scope *scope) Register(constructor interface{}) {
 	// ensure we know how to construct slices of given type
 	//
 	scope.registerSliceConstructor(constructor, constructorType)
+	scope.registerMapConstructor(constructor, constructorType)
 
 	scope.constructorMapping[constructorType] = constructor
 

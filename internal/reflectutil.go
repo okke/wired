@@ -62,3 +62,29 @@ func CreateSliceWithValues(sliceType reflect.Type, values ...interface{}) reflec
 	}
 	return slice
 }
+
+// CreateMapWithValues creates a map of given type and appends given values
+// When a value is a map itself, all map key/value pairs will be copied
+//
+// Note, use like CreateMapWithValues(key1, value1, key2, value2)
+// or CreateMapWithValues(key, value, existingmapping)
+//
+func CreateMapWithValues(mapType reflect.Type, values ...interface{}) reflect.Value {
+	mapping := reflect.MakeMap(mapType)
+	var key interface{}
+
+	for _, value := range values {
+		if key != nil {
+			mapping.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
+			key = nil
+		} else if reflect.TypeOf(value).Kind() == reflect.Map {
+			for _, knownKey := range reflect.ValueOf(value).MapKeys() {
+				mapping.SetMapIndex(knownKey, reflect.ValueOf(value).MapIndex(knownKey))
+			}
+			key = nil
+		} else {
+			key = value
+		}
+	}
+	return mapping
+}
