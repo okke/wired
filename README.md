@@ -248,7 +248,7 @@ In this case, only the function that constructs the factory need to be registere
 
 ```Go
 wired.Go(func(scope wired.Scope) {
-  scope.Register(newMultiFactory)P
+  scope.Register(newMultiFactory)
 
   scope.Inject(func(drivers []Driver, something Something) {
     // ....
