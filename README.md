@@ -218,6 +218,44 @@ wired.Global().Go(func(scope wired.Scope) {
 
 Note, factories are singletons but, in contrast to other objects, are created as soon as they are registered.
 
+Factories can have multiple constructor methods. All methods starting with "Construct" are treated as constructor functions.
+Constructor methods can construct any type so factories can be used to bundle constructors.
+
+```Go
+type multiFactory struct {
+  wired.Factory
+}
+
+func (multiFactory *multiFactory) ConstructAzureDriver() Driver {
+  return &azureDriver{}
+}
+
+func (multiFactory *multiFactory) ConstructAWSDriver() Driver {
+  return &awsDriver{}
+}
+
+func (multiFactory *multiFactory) ConstructSomethingCompletelyDifferent() Something {
+  return &andNowForSomethingCompletelyDifferent{}
+}
+
+func newMultiFactory() *multiFactory {
+  return &multiFactory{}
+}
+
+```
+
+In this case, only the function that constructs the factory need to be registered.
+
+```Go
+wired.Go(func(scope wired.Scope) {
+  scope.Register(newMultiFactory)P
+
+  scope.Inject(func(drivers []Driver, something Something) {
+    // ....
+  })
+})
+```
+
 ## Scopes
 Wired knows the concept of scopes to hold references to constructor functions and singleton objects. Scopes are always inherited from another scope. Everything that is accessible in a parent scope, is accessible within a child scope. But everything in a child scope is not known to the parent and will override the parent.
 

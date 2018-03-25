@@ -68,3 +68,38 @@ func TestFactoryConstruction(t *testing.T) {
 
 	})
 }
+
+// --- test multi factory ---------
+
+type soup struct {
+	name string
+}
+
+type multiFactory struct {
+	wired.Factory
+}
+
+func (multiFactory *multiFactory) ConstructTomatoSoup() *soup {
+	return &soup{name: "tomato"}
+}
+
+func (multiFactory *multiFactory) ConstructChickenSoup() *soup {
+	return &soup{name: "chicken"}
+}
+
+func newMultiFactory() *multiFactory {
+	return &multiFactory{}
+}
+
+func TestMultiFactoryConstruction(t *testing.T) {
+	wired.Go(func(scope wired.Scope) {
+		scope.Register(newMultiFactory)
+
+		scope.Inject(func(soups []*soup) {
+			if len(soups) != 2 {
+				t.Error("expected 2 soups, not", len(soups))
+			}
+		})
+
+	})
+}

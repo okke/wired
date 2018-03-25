@@ -2,6 +2,7 @@ package wired
 
 import (
 	"reflect"
+	"strings"
 )
 
 // Factory tags an object to act as a construction factory for other objects
@@ -24,11 +25,18 @@ func init() {
 func (factory *factory) Apply(scope Scope, objType reflect.Type, constructor func() interface{}) interface{} {
 
 	constructed := factory.singleton.Apply(scope, objType, constructor)
+	constructedValue := reflect.ValueOf(constructed)
+	constructedType := reflect.TypeOf(constructed)
 
-	factoryMethod := reflect.ValueOf(constructed).MethodByName("Construct")
+	for walk := 0; walk < constructedType.NumMethod(); walk++ {
+		factoryMethodType := constructedType.Method(walk)
+		if strings.HasPrefix(factoryMethodType.Name, "Construct") {
+			factoryMethod := constructedValue.MethodByName(factoryMethodType.Name)
 
-	if factoryMethod.Kind() != reflect.Invalid {
-		scope.Register(factoryMethod.Interface())
+			if factoryMethod.Kind() != reflect.Invalid {
+				scope.Register(factoryMethod.Interface())
+			}
+		}
 	}
 
 	return constructed
