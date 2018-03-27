@@ -13,6 +13,8 @@ type scope struct {
 	parent             *scope
 }
 
+var scopeType = reflect.TypeOf((*scope)(nil))
+
 // Scope is an interface describing the main functions used to wire objects
 //
 type Scope interface {
@@ -111,28 +113,28 @@ func (scope *scope) RegisterSingleton(objType reflect.Type, value interface{}) {
 	scope.singletons[objType] = value
 }
 
-func (scope *scope) registerSliceConstructor(constructor interface{}, constructorType reflect.Type) {
+func (wire *scope) registerSliceConstructor(constructor interface{}, constructorType reflect.Type) {
 
 	sliceType := reflect.SliceOf(constructorType)
 
-	knownConstructor, found := scope.findConstructor(sliceType)
+	knownConstructor, found := wire.findConstructor(sliceType)
 
-	scope.constructorMapping[sliceType] = func() interface{} {
+	wire.constructorMapping[sliceType] = func(activeScope *scope) interface{} {
 		if !found {
 			return internal.CreateSliceWithValues(
 				sliceType,
-				scope.Construct(constructor)).Interface()
+				activeScope.Construct(constructor)).Interface()
 		}
 
 		return internal.CreateSliceWithValues(
 			sliceType,
-			scope.Construct(constructor),
-			scope.Construct(knownConstructor)).Interface()
+			activeScope.Construct(constructor),
+			activeScope.Construct(knownConstructor)).Interface()
 	}
 
 }
 
-func (scope *scope) registerMapConstructor(constructor interface{}, constructorType reflect.Type) {
+func (wire *scope) registerMapConstructor(constructor interface{}, constructorType reflect.Type) {
 
 	keyMethod, found := constructorType.MethodByName("Key")
 	if !found {
@@ -146,10 +148,10 @@ func (scope *scope) registerMapConstructor(constructor interface{}, constructorT
 	keyType := keyMethod.Type.Out(0)
 	mapType := reflect.MapOf(keyType, constructorType)
 
-	knownConstructor, found := scope.findConstructor(mapType)
+	knownConstructor, found := wire.findConstructor(mapType)
 
-	scope.constructorMapping[mapType] = func() interface{} {
-		constructed := scope.Construct(constructor)
+	wire.constructorMapping[mapType] = func(activeScope *scope) interface{} {
+		constructed := activeScope.Construct(constructor)
 		constructedKey := reflect.ValueOf(constructed).MethodByName("Key").Call([]reflect.Value{})[0].Interface()
 		if !found {
 			return internal.CreateMapWithValues(
@@ -162,7 +164,7 @@ func (scope *scope) registerMapConstructor(constructor interface{}, constructorT
 			mapType,
 			constructedKey,
 			constructed,
-			scope.Construct(knownConstructor)).Interface()
+			activeScope.Construct(knownConstructor)).Interface()
 	}
 }
 
@@ -281,6 +283,12 @@ func (scope *scope) construct(use interface{}) interface{} {
 // function.
 //
 func (scope *scope) ConstructByType(objType reflect.Type) interface{} {
+
+	// when looking for a scope, always return the current scope
+	//
+	if objType == scopeType {
+		return scope
+	}
 
 	argConstructor, found := scope.findConstructor(objType)
 	if !found {

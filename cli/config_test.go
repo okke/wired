@@ -30,13 +30,10 @@ func newNeedConfig() *needConfig {
 }
 
 func TestConfigByArguments(t *testing.T) {
+
 	wired.Global().Go(func(scope wired.Scope) {
 		scope.Register(newMockProviderForConfig)
 		scope.Register(newNeedConfig)
-
-		// todo: should work without this
-		//
-		scope.Register(cli.NewConfigByFlags)
 
 		scope.Inject(func(configured *needConfig) {
 			if configured == nil {
