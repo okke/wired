@@ -372,3 +372,83 @@ func TestConstructMapWithInvalidKeysShouldPanic(t *testing.T) {
 
 	})
 }
+
+// ------ Test map and list construction with mocking ----
+
+type mockedOrNot interface {
+	IsMock() bool
+}
+
+type isTheRealThing struct {
+}
+
+func (isTheRealThing *isTheRealThing) IsMock() bool {
+	return false
+}
+
+func newRealThing() mockedOrNot {
+	return &isTheRealThing{}
+}
+
+type isFakeButUseful struct {
+}
+
+func (isFakeButUseful *isFakeButUseful) IsMock() bool {
+	return true
+}
+
+func newFakeThing() mockedOrNot {
+	return &isFakeButUseful{}
+}
+
+type usesMockOrNot struct {
+	wired.AutoWire
+
+	Thing mockedOrNot
+}
+
+func (usesMockOrNot *usesMockOrNot) Key() string {
+	return "MockOrNot"
+}
+
+func newMockOrNot() *usesMockOrNot {
+	return &usesMockOrNot{}
+}
+
+func TestShouldUsesMockInSlicesAndMaps(t *testing.T) {
+
+	wired.Go(func(scope wired.Scope) {
+		scope.Register(newRealThing)
+		scope.Register(newMockOrNot)
+
+		scope.Inject(func(check *usesMockOrNot) {
+			if check.Thing.IsMock() {
+				t.Error("did expect the real thing")
+			}
+		})
+
+		scope.Go(func(inner wired.Scope) {
+			inner.Register(newFakeThing)
+
+			inner.Inject(func(check *usesMockOrNot) {
+				if !check.Thing.IsMock() {
+					t.Error("did expect the fake thing")
+				}
+			})
+
+			inner.Inject(func(check []*usesMockOrNot) {
+				if !check[0].Thing.IsMock() {
+					t.Error("did expect the fake thing in slice")
+				}
+			})
+
+			inner.Inject(func(check map[string]*usesMockOrNot) {
+				if !check["MockOrNot"].Thing.IsMock() {
+					t.Error("did expect the fake thing in map")
+				}
+			})
+
+		})
+
+	})
+}
