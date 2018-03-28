@@ -299,3 +299,62 @@ func someWhereElse() {
   
 }
 ```
+
+## Mocking
+Scopes can be used to mock the usage of objects. Which can be very useful when testing types that depend on other types that are not working during testing. Best example is the usage of an external services. Suppose you want to test a type that in production uses an http service to retrieve data. In your unit tests, this service is not available. In this case, you want to inject the mock instead of the real deal. A trivial example shows how this works: 
+
+```Go
+type ChipotleService interface {
+}
+
+type chipotleService struct {
+  // ... further implementation
+}
+
+type useChipotleService struct {
+  wired.AutoWire
+
+  Service ChipotleService // want to retrieve some tasty peppers
+}
+
+func NewChipotleService() ChipotleService {
+  return &chipotleService{}
+}
+
+func newChipotleUsage() *useChipotleService {
+  return &useChipotleService{}
+}
+
+func init() {
+  wired.Global().Register(NewChipotleService) // object we want to mock
+  wired.Global().Register(newChipotleUsage)   // type we want to test
+}
+```
+
+To apply mocking, simply start a sub-scope, register the mock and inject the type you want to test and which requires the mock object for testing purpose.
+
+```Go
+type chipotleMock struct {
+  // ... mock implementation
+}
+
+func newChipotleMock() ChipotleService {
+  return &chipotleMock{}
+}
+
+wired.Global().Go(func(scope wired.Scope) {
+    
+    scope.Inject(func(chipotleLover *useChipotleService) {
+      // chipotleLover will use the real ChipotleService, not handy for testing
+    })
+
+    scope.Go(func(sub wired.Scope) {
+      sub.Register(newChipotleMock)   // our mock
+
+      sub.Inject(func(chipotleLover *useChipotleService) {
+        // chipotleLover will use the chipotleMock
+      })
+    })
+  })
+}
+```
