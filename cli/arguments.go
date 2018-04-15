@@ -78,22 +78,28 @@ func (argumentProvider *argumentProvider) Arguments() []string {
 	return os.Args
 }
 
-func newArgumentParser() ArgumentParser {
+type argumentSupport struct {
+	wired.Factory
+}
+
+func (ArgumentSupport *argumentSupport) ConstructNewArgumentParser() ArgumentParser {
 	return &argumentParser{}
 }
 
-func newArgumentProvider() ArgumentProvider {
+func (ArgumentSupport *argumentSupport) ConstructNewArgumentProvider() ArgumentProvider {
 	return &argumentProvider{}
 }
 
-func newArguments(provider ArgumentProvider, parser ArgumentParser) Arguments {
+func (ArgumentSupport *argumentSupport) ConstructNewArguments(provider ArgumentProvider, parser ArgumentParser) Arguments {
 	return parser.Parse(provider.Arguments())
+}
+
+func newArgumentSupport() *argumentSupport {
+	return &argumentSupport{}
 }
 
 // register the argument parser at global scope
 //
 func init() {
-	wired.Global().Register(newArgumentParser)
-	wired.Global().Register(newArgumentProvider)
-	wired.Global().Register(newArguments)
+	wired.Global().Register(newArgumentSupport)
 }
